@@ -50,7 +50,8 @@ The master branch works with **PyTorch 1.5+**.
 
 <!-- <iframe height=640 width=640 src="vis_results/vis_demo_v.mp4"> -->
 
-<video src="vis_results/vis_demo_v.mp4" controls="controls" width="640" height="360"></video>
+![image](./vis_results/hrnet.gif)
+
 
 ## Installation
 
