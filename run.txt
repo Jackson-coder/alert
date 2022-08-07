@@ -1,0 +1,5 @@
+python models/export.py --weights weights/yolopose/yolov5m6_pose_960_ti_lite.pt --img 960 --batch 1 --simplify --export-nms
+cd onnx_inference
+python yolo_pose_onnx_inference.py --model-path ../weights/yolopose/yolov5m6_pose_960_ti_lite.onnx --img-path ../img_data.txt --dst-path ../result
+
+python yolo_pose_onnx_inference_vid.py --model-path ../weights/yolopose/yolov5m6_pose_960_ti_lite.onnx --vid-path ../data/video/demo.mp4 --dst-path ../result
