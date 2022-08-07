@@ -50,7 +50,10 @@ The master branch works with **PyTorch 1.5+**.
 
 <!-- <iframe height=640 width=640 src="vis_results/vis_demo_v.mp4"> -->
 
-<iframe height=360 width=640 src=https://github.com/Jackson-coder/alert/blob/master/vis_results/vis_demo_v.mp4>
+<video width="640" height="360" controls>
+    <source src="https://github.com/Jackson-coder/alert/blob/master/vis_results/vis_demo_v.mp4" type="video/mp4">
+</video>
+
 
 ## Installation
 
