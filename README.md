@@ -48,8 +48,9 @@ It is a part of the [OpenMMLab project](https://github.com/open-mmlab).
 
 The master branch works with **PyTorch 1.5+**.
 
-<iframe height=640 width=640 src="vis_results/vis_demo_v.mp4">
+<!-- <iframe height=640 width=640 src="vis_results/vis_demo_v.mp4"> -->
 
+<iframe height=360 width=640 src=https://github.com/Jackson-coder/alert/blob/master/vis_results/vis_demo_v.mp4>
 
 ## Installation
 
