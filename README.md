@@ -4,7 +4,7 @@
  * @Author: Jackson-coder
  * @Date: 2022-08-07 19:46:17
  * @LastEditors: Jackson-coder
- * @LastEditTime: 2022-08-08 11:17:43
+ * @LastEditTime: 2022-08-08 14:53:08
 -->
 # YOLO-Pose Multi-person Pose estimation model
 
@@ -14,7 +14,7 @@ Given below is a sample comparision with existing Associative Embedding based ap
 
 <br/> 
 <p float="left">
-<img width="1000" src="./result/cmp.gif">
+<img width="640" src="./result/cmp.gif">
 </p>   
 
 
