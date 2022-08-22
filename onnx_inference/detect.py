@@ -236,7 +236,12 @@ class Detector(object):
         else:
             return 'backward'
 
-    def cfg_init(self, frame, pose_results, kpt_thr):
+    def cfg_init(self, output, frame, kpt_thr):
+
+        pose_results = output[0][:, 6:]
+        pose_results = np.reshape(pose_results,(-1, 17, 3))
+        pose_scores = output[0][:, 4]
+
         if self.kx == None:
             self.kx = self.getHorizonSlope(frame)
 
@@ -248,31 +253,10 @@ class Detector(object):
         if self.kx != None and self.ky != None:
             print('\n----------水平方向(角度)：',self.kx,'----------')
             print('------垂直方向（x/y）：',self.ky,'------')
-            
-    def judge3DInvade(self, json_file, pose_results, pose_scores, direction, kpt_thr, vis_frame, tolerable_eer_thr, scale=1):
+
+    def judge3DInvade(self, output, json_file, direction, kpt_thr, vis_frame, tolerable_eer_thr, scale=1):
         '''判断是否发生3D入侵
             json_file: 图像分割结果
-
-            pose_results: 姿态估计结果，具体格式如下：
-                            0:'nose',
-                            1:'left_eye',
-                            2:'right_eye',
-                            3:'left_ear',
-                            4:'right_ear',
-                            5:'left_shoulder',
-                            6:'right_shoulder',
-                            7:'left_elbow',
-                            8:'right_elbow',
-                            9:'left_wrist',
-                            10:'right_wrist',
-                            11:'left_hip',
-                            12:'right_hip',
-                            13:'left_knee',
-                            14:'right_knee',
-                            15:'left_ankle',
-                            16:'right_ankle',
-                            
-            pose_scores: 人体姿态框置信度
 
             direction:识别对象行进方向
 
@@ -287,6 +271,11 @@ class Detector(object):
             return:
                 vis_frame: 加入3D入侵警告的视频帧
         '''
+
+        pose_results = output[0][:, 6:]
+        pose_results = np.reshape(pose_results,(-1, 17, 3))
+        pose_scores = output[0][:, 4]
+
         for pose, pose_score in zip(pose_results, pose_scores):
             flag = True
             for p in pose:
