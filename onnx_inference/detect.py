@@ -4,8 +4,26 @@ import math
 import numpy as np
 
 class Detector(object):
-    def __init__(self, mode, kx=None, ky=None):
-        self.mode = mode
+    '''Tutorial
+
+    CFG_INIT = True
+    JUDGE_INVADE = False
+
+    mode = CFG_INIT
+
+    if mode == CFG_INIT:
+        detector = Detector()
+        for frame_id in range(100):
+            detector.cfg_init(...)
+        print(detector.kx, detector.ky)
+    
+    elif mode == JUDGE_INVADE:
+        detector = Detector(kx, ky)
+        outputFrame = detector.judge3DInvade(...)
+
+    
+    '''
+    def __init__(self, kx=None, ky=None):
         self.__ky_buffer = []
         self.kx = kx
         self.ky = ky
@@ -271,6 +289,8 @@ class Detector(object):
             return:
                 vis_frame: 加入3D入侵警告的视频帧
         '''
+
+        assert self.kx!=None and self.ky!=None
 
         pose_results = output[0][:, 6:]
         pose_results = np.reshape(pose_results,(-1, 17, 3))
