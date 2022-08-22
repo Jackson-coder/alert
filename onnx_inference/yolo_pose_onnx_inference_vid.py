@@ -58,7 +58,7 @@ def model_inference(model_path=None, input=None):
     return output
 
 
-def model_inference_vid(model_path, kpt_thr=0.3, resize=960, scale=1, tolerable_eer_thr=25, kx=0.0, ky=None,  \
+def model_inference_vid(model_path, kpt_thr=0.3, inputsize=960, scale=1, tolerable_eer_thr=25, kx=0.0, ky=None,  \
     make_border=True, save_out_video=True, dst_path=None, json_file=None, direction='forward', vid_path=None, \
         mean=0.0, sigma=0.00392156862745098, mode='video_inference'):
     '''判断是否发生3D入侵
@@ -66,7 +66,7 @@ def model_inference_vid(model_path, kpt_thr=0.3, resize=960, scale=1, tolerable_
 
         kpt_thr： 姿态点置信阈值
 
-        resize: 图片放缩后的大小，默认960x960，送入神经网络训练的输入特征图
+        inputsize: 图片放缩后的大小，默认960x960，送入神经网络训练的输入特征图
 
         scale: 处理视频帧相对于原始视频帧的缩小倍数，默认为1（make_border=True时处理完的姿态点已映射到原图，若make_border=False需要手动调整）
 
@@ -104,7 +104,7 @@ def model_inference_vid(model_path, kpt_thr=0.3, resize=960, scale=1, tolerable_
 
     if save_out_video and make_border is False:
         fps = 20
-        size = (resize, resize)
+        size = (inputsize, inputsize)
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         videoWriter = cv2.VideoWriter(
             os.path.join(dst_path,
@@ -133,8 +133,8 @@ def model_inference_vid(model_path, kpt_thr=0.3, resize=960, scale=1, tolerable_
             kx = getHorizonSlope(frame)
 
         if make_border:  # (recommand)
-            resize_coefficient = img.shape[1]/resize
-            height, width = int(img.shape[0]/resize_coefficient), resize
+            resize_coefficient = img.shape[1]/inputsize
+            height, width = int(img.shape[0]/resize_coefficient), inputsize
             add_bottom_and_up = (width - height)//2
             img = cv2.resize(img, (width, height), interpolation=cv2.INTER_LINEAR)
             img = cv2.copyMakeBorder(img,add_bottom_and_up,add_bottom_and_up,0,0,cv2.BORDER_CONSTANT)
@@ -153,7 +153,7 @@ def model_inference_vid(model_path, kpt_thr=0.3, resize=960, scale=1, tolerable_
             img = frame
             
         else:
-            img = cv2.resize(img, (resize, resize), interpolation=cv2.INTER_LINEAR)
+            img = cv2.resize(img, (inputsize, inputsize), interpolation=cv2.INTER_LINEAR)
             input = read_img(img, mean, sigma)
             output = model_inference(model_path, input) #没有放缩回去，待完善
         
@@ -166,7 +166,7 @@ def model_inference_vid(model_path, kpt_thr=0.3, resize=960, scale=1, tolerable_
         if mode == 'video_init':
             ky_buffer.append(getVerticalSlope(pose_results, kpt_thr))
 
-            if len(ky_buffer)<100:
+            if len(ky_buffer)>100:
                 ky = np.mean(ky_buffer)
                 break
         else:
@@ -274,7 +274,7 @@ def main():
         default=-0.02361783, #-0.09467121147881472,
         help='Slope of vertical line')
     parser.add_argument(
-        '--resize',
+        '--inputsize',
         type=int,
         default=960,
         help='Input size of yolopose-net')
@@ -311,7 +311,7 @@ def main():
 
     args = parser.parse_args()
 
-    model_inference_vid(model_path=args.model_path, kpt_thr=args.kpt_thr, resize=args.resize, 
+    model_inference_vid(model_path=args.model_path, kpt_thr=args.kpt_thr, inputsize=args.inputsize, 
                                kx=args.kx, ky=args.ky, vid_path=args.vid_path,
                                tolerable_eer_thr=args.tolerable_eer_thr, scale=args.scale,
                                json_file=args.json_file,#'/home/lyh/edgeai-yolov5/onnx_inference/1.json',
