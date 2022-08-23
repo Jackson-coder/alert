@@ -256,9 +256,9 @@ class Detector(object):
 
     def cfg_init(self, output, frame, kpt_thr):
 
-        pose_results = output[0][:, 6:]
+        pose_results = output[:, 6:]
         pose_results = np.reshape(pose_results,(-1, 17, 3))
-        pose_scores = output[0][:, 4]
+        pose_scores = output[:, 4]
 
         if self.kx == None:
             self.kx = self.getHorizonSlope(frame)
@@ -292,9 +292,9 @@ class Detector(object):
 
         assert self.kx!=None and self.ky!=None
 
-        pose_results = output[0][:, 6:]
+        pose_results = output[:, 6:]
         pose_results = np.reshape(pose_results,(-1, 17, 3))
-        pose_scores = output[0][:, 4]
+        pose_scores = output[:, 4]
 
         for pose, pose_score in zip(pose_results, pose_scores):
             flag = True
