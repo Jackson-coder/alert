@@ -140,9 +140,7 @@ class Detector(object):
         A, B, C = self.getLine(a, b)
         x = -(B*b0+C)/(A+B*k+1e-10)
         y = -k*(B*b0+C)/(A+B*k+1e-10)+b0
-
-        print([int(x), int(y)])
-
+        
         return [int(x), int(y)]
 
 
