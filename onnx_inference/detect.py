@@ -138,8 +138,10 @@ class Detector(object):
         """
         b0 = P[1] - k*P[0]
         A, B, C = self.getLine(a, b)
-        x = -(B*b0+C)/(A+B*k)
-        y = -k*(B*b0+C)/(A+B*k)+b0
+        x = -(B*b0+C)/(A+B*k+1e-10)
+        y = -k*(B*b0+C)/(A+B*k+1e-10)+b0
+
+        print([int(x), int(y)])
 
         return [int(x), int(y)]
 
@@ -170,8 +172,13 @@ class Detector(object):
         """
         with open(json_file, 'r', encoding='utf8')as fp:
             json_data = json.load(fp)
-            alert1 = json_data['shapes'][0]['points']
-            alert2 = json_data['shapes'][1]['points']
+            # alert1 = json_data['shapes'][0]['points']
+            # alert2 = json_data['shapes'][1]['points']
+
+            alert1 = json_data['left baffle']
+            alert2 = json_data['right baffle']
+
+            print(alert1, alert2)
 
             for i in range(len(alert1)):
                 alert1[i] = [int(alert1[i][0]/scale), int(alert1[i][1]/scale)]
@@ -382,3 +389,4 @@ class Detector(object):
 
 
 
+    
