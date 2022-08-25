@@ -277,11 +277,9 @@ class Detector(object):
             print('\n----------水平方向(角度)：',self.kx,'----------')
             print('------垂直方向（x/y）：',self.ky,'------')
 
-    def judge3DInvade(self, output, json_file, direction, kpt_thr, vis_frame, tolerable_eer_thr, scale=1):
+    def judge3DInvade(self, output, json_file, kpt_thr, vis_frame, tolerable_eer_thr, scale=1):
         '''判断是否发生3D入侵
             json_file: 图像分割结果
-
-            direction:识别对象行进方向
 
             kpt_thr: 姿态点置信阈值
 
@@ -308,12 +306,18 @@ class Detector(object):
                 if flag is False:
                     break
 
-            # 只识别面朝前或者面朝后的人
-            if direction != self.judgeDirection(pose, kpt_thr): # judgeDirection 将在第三版代码更新后去除，将使用跟踪位移方向判断人的移动方向
-                                                            # 异常动作如 侧面歪头 和 侧面伸腿 将使用跟踪协助判断
-                continue
+            # # 只识别面朝前或者面朝后的人
+            # if direction != self.judgeDirection(pose, kpt_thr): # judgeDirection 将在第三版代码更新后去除，将使用跟踪位移方向判断人的移动方向
+            #                                                 # 异常动作如 侧面歪头 和 侧面伸腿 将使用跟踪协助判断
+            #     continue
             if pose_score < 0.3:
                 continue
+
+            # 踢腿出界
+            if self.judge2DborderIn(json_file, P=pose[15], score_threshold=kpt_thr, kx=self.kx, scale=scale) == False or\
+                self.judge2DborderIn(json_file, P=pose[16], score_threshold=kpt_thr, kx=self.kx, scale=scale) == False:
+                print('warning5: out of border')
+
 
             # 不是完整姿态
             if flag is False:
