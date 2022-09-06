@@ -88,27 +88,47 @@ class Detector(object):
 
             return (point1[1]-point2[1])/(point1[0]-point2[0])
 
-    def getVerticalSlope(self, pose_results, kpt_thr):
+    # def getVerticalSlope(self, pose_results, kpt_thr):
 
+    #     ky = []
+
+    #     for pose in pose_results:
+    #         flag = True
+    #         for p in pose:
+    #             flag = bool(p[2] > kpt_thr)
+    #             if flag is False:
+    #                 break
+
+    #         # 完整姿态
+    #         if flag is False:
+    #             continue
+
+    #         ankle = (pose[15] + pose[16])/2
+    #         hip = (pose[11] + pose[12])/2
+
+    #         ky.append((ankle[0]-hip[0])/(ankle[1]-hip[1]))
+
+    #     return np.mean(ky)
+
+    def getVerticalSlope(self, pose, kpt_thr):
+    
         ky = []
 
-        for pose in pose_results:
-            flag = True
-            for p in pose:
-                flag = bool(p[2] > kpt_thr)
-                if flag is False:
-                    break
-
-            # 完整姿态
+        flag = True
+        for p in pose:
+            flag = bool(p[2] > kpt_thr)
             if flag is False:
-                continue
+                break
 
-            ankle = (pose[15] + pose[16])/2
-            hip = (pose[11] + pose[12])/2
+        # 不是完整姿态
+        if flag is False:
+            return
 
-            ky.append((ankle[0]-hip[0])/(ankle[1]-hip[1]))
+        ankle = (pose[15] + pose[16])/2
+        hip = (pose[11] + pose[12])/2
 
-        return np.mean(ky)
+        return (ankle[0]-hip[0])/(ankle[1]-hip[1])
+
 
     def getLine(self, a, b):
         """计算直线方程
@@ -306,15 +326,16 @@ class Detector(object):
         # pose_results = np.reshape(pose_results,(-1, 17, 3))
         # pose_scores = output[:, 4]
 
-        pose_results = output[6:]
-        pose_results = np.reshape(pose_results,(17, 3))
-        pose_scores = output[4]
+        pose_result = output[6:]
+        pose_result = np.reshape(pose_result,(17, 3))
+        pose_score = output[4]
 
         if self.kx == None:
             self.kx = self.getHorizonSlope(json_file)
+            print('\n----------水平方向(角度)：',self.kx,'----------')
 
-        ky = self.getVerticalSlope(pose_results, kpt_thr)
-        if not np.isnan(ky):
+        ky = self.getVerticalSlope(pose_result, kpt_thr)
+        if ky is not None and np.isnan(ky) is False:
             self.__ky_buffer.append(ky)
 
         if len(self.__ky_buffer)>5:
@@ -453,3 +474,9 @@ class Detector(object):
 if __name__ == "__main__":
     detector = Detector()
     print(detector.getHorizonSlope("E:\\alert\demo2\seg_result.json"))
+    pose_result = np.array([[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5]])
+    ky = detector.getVerticalSlope(pose_result, 0.3)
+    if ky is not None and np.isnan(ky) is False:
+        print(ky)
+    else:
+        print('error')
