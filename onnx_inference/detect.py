@@ -205,6 +205,29 @@ class Detector(object):
         return Points
 
 
+    def getNearestCrossPoints(self, points, P):
+            """寻找交点
+            points: 水平交点
+            P：定点坐标
+
+            return:
+                Points:[levelpoint1, levelpoint2]
+        """
+
+        # 负的最大
+        max_c = -10000
+        
+        # 正的最小
+        min_c = 10000
+
+        point1 = point2 = [0, 0]
+
+        for point in points:
+                max_c, point1 = (point[0]-P[0], point) if point[0]-P[0] < 0 and point[0]-P[0] > max_c else (max_c, point1)
+                min_c, point2 = (point[0]-P[0], point) if point[0]-P[0] > 0 and point[0]-P[0] < min_c else (min_c, point2)
+        return point1, point2
+
+
     def judge2DborderIn(self, json_file='/home/lyh/mmpose/tests/data/coco/1.json', kx=0, P=[960, 540, 1], score_threshold=0.3, scale=1.5):
         """判断点是否在二维区域内部
             json_file: 分割数据存储文件
@@ -261,21 +284,28 @@ class Detector(object):
 
     def cfg_init(self, output, frame, kpt_thr):
 
-        pose_results = output[:, 6:]
-        pose_results = np.reshape(pose_results,(-1, 17, 3))
-        pose_scores = output[:, 4]
+        # pose_results = output[:, 6:]
+        # pose_results = np.reshape(pose_results,(-1, 17, 3))
+        # pose_scores = output[:, 4]
 
-        if self.kx == None:
-            self.kx = self.getHorizonSlope(frame)
+        pose_results = output[6:]
+        pose_results = np.reshape(pose_results,(17, 3))
+        pose_scores = output[4]
 
-        self.__ky_buffer.append(self.getVerticalSlope(pose_results, kpt_thr))
+        # if self.kx == None:
+        #     self.kx = self.getHorizonSlope(frame)
 
-        if len(self.__ky_buffer)>100:
+        ky = self.getVerticalSlope(pose_results, kpt_thr)
+        if not np.isnan(ky):
+            self.__ky_buffer.append(ky)
+
+        if len(self.__ky_buffer)>10:
             self.ky = np.mean(self.__ky_buffer)
-
-        if self.kx != None and self.ky != None:
-            print('\n----------水平方向(角度)：',self.kx,'----------')
             print('------垂直方向（x/y）：',self.ky,'------')
+
+        # if self.kx != None and self.ky != None:
+            # print('\n----------水平方向(角度)：',self.kx,'----------')
+            # print('------垂直方向（x/y）：',self.ky,'------')
 
     def judge3DInvade(self, output, json_file, kpt_thr, vis_frame, tolerable_eer_thr, scale=1):
         '''判断是否发生3D入侵
@@ -295,9 +325,13 @@ class Detector(object):
 
         assert self.kx!=None and self.ky!=None
 
-        pose_results = output[:, 6:]
-        pose_results = np.reshape(pose_results,(-1, 17, 3))
-        pose_scores = output[:, 4]
+        # pose_results = output[:, 6:]
+        # pose_results = np.reshape(pose_results,(-1, 17, 3))
+        # pose_scores = output[:, 4]
+
+        pose_results = output[6:]
+        pose_results = np.reshape(pose_results,(17, 3))
+        pose_scores = output[4]
 
         for pose, pose_score in zip(pose_results, pose_scores):
             flag = True
@@ -368,20 +402,28 @@ class Detector(object):
                 continue
 
             # 完整姿态
-            # 四个水平交点
-            crossPoints = self.getCrossPoints(P=pose[15])
+            # 水平交点
+            if pose[15][1] > pose[16][1]:
+                crossPoints = getCrossPoints(json_file, P=pose[15], scale=scale)
+            else:
+                crossPoints = getCrossPoints(json_file, P=pose[16], scale=scale)
+            # 得到最近的两个水平交点
 
-            if len(crossPoints) != 0:
-                # print(crossPoints)
+            # if len(crossPoints) != 0:
+            if len(crossPoints) > 3:
+                if pose[15][1] > pose[16][1]:
+                    point1, point2 = getNearestCrossPoints(crossPoints, pose[15])
+                else:
+                    point1, point2 = getNearestCrossPoints(crossPoints, pose[16])
+
                 for point in crossPoints:
                     cv2.circle(vis_frame, point, 5, (255, 0, 0), 8)
-                parallelLineDistance = self.getDist_P2L_V2(
-                    crossPoints[1], 1/self.ky, crossPoints[2])
+                parallelLineDistance = getDist_P2L_V2(
+                    point1, 1/ky, point2)
                 for p in pose:
-                    distance1 = self.getDist_P2L_V2(p, 1/self.ky, crossPoints[1])
-                    distance2 = self.getDist_P2L_V2(p, 1/self.ky, crossPoints[2])
+                    distance1 = getDist_P2L_V2(p, 1/ky, point1)
+                    distance2 = getDist_P2L_V2(p, 1/ky, point2)
                     if abs(distance1+distance2-parallelLineDistance) > tolerable_eer_thr:
-                        # print(abs(distance1+distance2-parallelLineDistance))
                         print('warning: out of border')
                         cv2.circle(vis_frame, [int(pose[0][0]), int(
                             pose[0][1])], 10, (0, 0, 255), 8)
