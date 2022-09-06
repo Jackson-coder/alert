@@ -3,6 +3,7 @@ import json
 import math
 import numpy as np
 
+
 class Detector(object):
     '''Tutorial
 
@@ -16,53 +17,76 @@ class Detector(object):
         for frame_id in range(100):
             detector.cfg_init(...)
         print(detector.kx, detector.ky)
-    
+
     elif mode == JUDGE_INVADE:
         detector = Detector(kx, ky)
         outputFrame = detector.judge3DInvade(...)
 
-    
+
     '''
+
     def __init__(self, kx=None, ky=None):
         self.__ky_buffer = []
         self.kx = kx
         self.ky = ky
 
-    def getHorizonSlope(self, cur_frame):
-        image = cv2.cvtColor(cur_frame, cv2.COLOR_BGR2HSV)
-        image = cv2.inRange(image,np.array([0,0,0]),np.array([210,255,86]))
-        cv2.bitwise_not(image,image)
-        kernel = np.ones((5, 5), np.uint8)
-        image = cv2.dilate(image, kernel, iterations = 1)
-        contours, hierarchy = cv2.findContours(image, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
-        # cv2.drawContours(cur_frame,contours,-1,(0,0,255),3)
+    # def getHorizonSlope(self, cur_frame):
+    #     image = cv2.cvtColor(cur_frame, cv2.COLOR_BGR2HSV)
+    #     image = cv2.inRange(image,np.array([0,0,0]),np.array([210,255,86]))
+    #     cv2.bitwise_not(image,image)
+    #     kernel = np.ones((5, 5), np.uint8)
+    #     image = cv2.dilate(image, kernel, iterations = 1)
+    #     contours, hierarchy = cv2.findContours(image, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+    #     # cv2.drawContours(cur_frame,contours,-1,(0,0,255),3)
 
-        kx = 10000
+    #     kx = 10000
 
-        for c in contours:
+    #     for c in contours:
 
-            if cv2.contourArea(c) < 20000 or cv2.contourArea(c) > 50000:
-                continue
-            # 找到边界坐标
-            x, y, w, h = cv2.boundingRect(c)  # 计算点集最外面的矩形边界
-            cv2.rectangle(image, (x, y), (x+w, y+h), (0, 255, 0), 2)
+    #         if cv2.contourArea(c) < 20000 or cv2.contourArea(c) > 50000:
+    #             continue
+    #         # 找到边界坐标
+    #         x, y, w, h = cv2.boundingRect(c)  # 计算点集最外面的矩形边界
+    #         cv2.rectangle(image, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
-            # 找面积最小的矩形
-            rect = cv2.minAreaRect(c)
-            # 得到最小矩形的坐标
-            box = cv2.boxPoints(rect)
+    #         # 找面积最小的矩形
+    #         rect = cv2.minAreaRect(c)
+    #         # 得到最小矩形的坐标
+    #         box = cv2.boxPoints(rect)
 
-            # 标准化坐标到整数
-            box = np.int0(box)
-            # 画出边界
-            cv2.drawContours(cur_frame, [box], 0, (0, 0, 255), 3)
+    #         # 标准化坐标到整数
+    #         box = np.int0(box)
+    #         # 画出边界
+    #         cv2.drawContours(cur_frame, [box], 0, (0, 0, 255), 3)
 
-            kx = rect[2] if abs(rect[2])<abs(kx) else kx
+    #         kx = rect[2] if abs(rect[2])<abs(kx) else kx
 
-        cv2.drawContours(image, contours, -1, (255, 0, 0), 1)
-        cv2.imwrite("demo1.jpg", image)
-        cv2.imwrite("demo2.jpg", cur_frame)
-        return kx
+    #     cv2.drawContours(image, contours, -1, (255, 0, 0), 1)
+    #     cv2.imwrite("demo1.jpg", image)
+    #     cv2.imwrite("demo2.jpg", cur_frame)
+    #     return kx
+
+    def getHorizonSlope(self, json_file, scale=1):
+        with open(json_file, 'r', encoding='utf8')as fp:
+            json_data = json.load(fp)
+            # alert1 = json_data['shapes'][0]['points']
+            # alert2 = json_data['shapes'][1]['points']
+
+            step = json_data['step']
+
+            for i in range(len(step)):
+                step[i] = [int(step[i][0]/scale), int(step[i][1]/scale)]
+
+            point1 = point2 = [0, 0]
+
+            for point in step:
+                if point[1] > point1[1]:
+                    point2 = point1
+                    point1 = point
+                elif point[1] > point2[1]:
+                    point2 = point
+
+            return (point1[1]-point2[1])/(point1[0]-point2[0])
 
     def getVerticalSlope(self, pose_results, kpt_thr):
 
@@ -83,9 +107,8 @@ class Detector(object):
             hip = (pose[11] + pose[12])/2
 
             ky.append((ankle[0]-hip[0])/(ankle[1]-hip[1]))
-            
+
         return np.mean(ky)
-        
 
     def getLine(self, a, b):
         """计算直线方程
@@ -99,9 +122,9 @@ class Detector(object):
 
         return A, B, C
 
-
     # ***** 点到直线的距离:P到AB的距离*****
     # P为线外一点，AB为线段两个端点
+
     def getDist_P2L_V1(self, P, a, b):
         """计算点到直线的距离
             P：定点坐标
@@ -117,7 +140,6 @@ class Detector(object):
 
     # ***** 点到直线的距离:P到AB的距离*****
 
-
     def getDist_P2L_V2(self, P, k, P0):
         """计算点到直线的距离
             P：定点坐标
@@ -127,7 +149,6 @@ class Detector(object):
         distance = abs(k*P[0]-P[1]+P0[1]-k*P0[0])/math.sqrt(k*k+1)
 
         return distance
-
 
     def getCrossPoint(self, k, P, a, b):
         """计算直线与直线的交点
@@ -140,9 +161,8 @@ class Detector(object):
         A, B, C = self.getLine(a, b)
         x = -(B*b0+C)/(A+B*k+1e-10)
         y = -k*(B*b0+C)/(A+B*k+1e-10)+b0
-        
-        return [int(x), int(y)]
 
+        return [int(x), int(y)]
 
     def judgeCross(self, k, P, a, b):
         """判断直线与线段是否相交
@@ -157,7 +177,6 @@ class Detector(object):
         else:
             return crossPoint, False
 
-
     def getCrossPoints(self, json_file='/home/lyh/mmpose/tests/data/coco/1.json', kx=0, P=[960, 540, 1], scale=1.5):
         """寻找交点
             json_file: 分割数据存储文件
@@ -166,7 +185,8 @@ class Detector(object):
             scale: 原图相对于处理图的倍率
 
             return:
-                Points:[levelpoint1, levelpoint2, levelpoint3, levelpoint4, verticalpoint1, verticalpoint2]
+                Points:[levelpoint1, levelpoint2, levelpoint3,
+                    levelpoint4, verticalpoint1, verticalpoint2]
         """
         with open(json_file, 'r', encoding='utf8')as fp:
             json_data = json.load(fp)
@@ -204,9 +224,8 @@ class Detector(object):
 
         return Points
 
-
     def getNearestCrossPoints(self, points, P):
-            """寻找交点
+        """寻找交点
             points: 水平交点
             P：定点坐标
 
@@ -216,7 +235,6 @@ class Detector(object):
 
         # 负的最大
         max_c = -10000
-        
         # 正的最小
         min_c = 10000
 
@@ -282,7 +300,7 @@ class Detector(object):
         else:
             return 'backward'
 
-    def cfg_init(self, output, frame, kpt_thr):
+    def cfg_init(self, json_file, output, frame, kpt_thr):
 
         # pose_results = output[:, 6:]
         # pose_results = np.reshape(pose_results,(-1, 17, 3))
@@ -292,14 +310,14 @@ class Detector(object):
         pose_results = np.reshape(pose_results,(17, 3))
         pose_scores = output[4]
 
-        # if self.kx == None:
-        #     self.kx = self.getHorizonSlope(frame)
+        if self.kx == None:
+            self.kx = self.getHorizonSlope(json_file)
 
         ky = self.getVerticalSlope(pose_results, kpt_thr)
         if not np.isnan(ky):
             self.__ky_buffer.append(ky)
 
-        if len(self.__ky_buffer)>10:
+        if len(self.__ky_buffer)>5:
             self.ky = np.mean(self.__ky_buffer)
             print('------垂直方向（x/y）：',self.ky,'------')
 
@@ -433,4 +451,5 @@ class Detector(object):
 
 
 if __name__ == "__main__":
-    pass
+    detector = Detector()
+    print(detector.getHorizonSlope("E:\\alert\demo2\seg_result.json"))
