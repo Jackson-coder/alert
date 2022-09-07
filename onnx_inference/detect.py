@@ -443,25 +443,25 @@ class Detector(object):
             # 完整姿态
             # 水平交点
             if pose[15][1] > pose[16][1]:
-                crossPoints = getCrossPoints(json_file, P=pose[15], scale=scale)
+                crossPoints = self.getCrossPoints(json_file, P=pose[15], scale=scale)
             else:
-                crossPoints = getCrossPoints(json_file, P=pose[16], scale=scale)
+                crossPoints = self.getCrossPoints(json_file, P=pose[16], scale=scale)
             # 得到最近的两个水平交点
 
             # if len(crossPoints) != 0:
             if len(crossPoints) > 3:
                 if pose[15][1] > pose[16][1]:
-                    point1, point2 = getNearestCrossPoints(crossPoints, pose[15])
+                    point1, point2 = self.getNearestCrossPoints(crossPoints, pose[15])
                 else:
-                    point1, point2 = getNearestCrossPoints(crossPoints, pose[16])
+                    point1, point2 = self.getNearestCrossPoints(crossPoints, pose[16])
 
                 for point in crossPoints:
                     cv2.circle(vis_frame, point, 5, (255, 0, 0), 8)
-                parallelLineDistance = getDist_P2L_V2(
+                parallelLineDistance = self.getDist_P2L_V2(
                     point1, 1/ky, point2)
                 for p in pose:
-                    distance1 = getDist_P2L_V2(p, 1/ky, point1)
-                    distance2 = getDist_P2L_V2(p, 1/ky, point2)
+                    distance1 = self.getDist_P2L_V2(p, 1/ky, point1)
+                    distance2 = self.getDist_P2L_V2(p, 1/ky, point2)
                     if abs(distance1+distance2-parallelLineDistance) > tolerable_eer_thr:
                         print('warning: out of border')
                         cv2.circle(vis_frame, [int(pose[0][0]), int(
