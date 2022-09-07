@@ -320,7 +320,7 @@ class Detector(object):
         else:
             return 'backward'
 
-    def cfg_init(self, json_file, output, frame, kpt_thr):
+    def cfg_init(self, json_file, output, kpt_thr):
 
         # pose_results = output[:, 6:]
         # pose_results = np.reshape(pose_results,(-1, 17, 3))
@@ -473,10 +473,10 @@ class Detector(object):
 
 if __name__ == "__main__":
     detector = Detector()
-    print(detector.getHorizonSlope("E:\\alert\demo2\seg_result.json"))
-    pose_result = np.array([[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5]])
-    ky = detector.getVerticalSlope(pose_result, 0.3)
-    if ky is not None and np.isnan(ky) is False:
-        print(ky)
-    else:
-        print('error')
+    # print(detector.getHorizonSlope("E:\\alert\demo2\seg_result.json"))
+    # pose_result = np.array([[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5]])
+    # ky = detector.getVerticalSlope(pose_result, 0.3)
+    json_file = "E:\\alert\onnx_inference\demo2\Se1.json"
+    output = [5,6,5,7,1,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5]
+    kpt_thr = 0.3
+    detector.cfg_init(json_file, output, kpt_thr)
