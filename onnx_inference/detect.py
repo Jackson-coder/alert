@@ -460,8 +460,8 @@ class Detector(object):
                 parallelLineDistance = self.getDist_P2L_V2(
                     point1, 1/ky, point2)
                 for p in pose:
-                    distance1 = self.getDist_P2L_V2(p, 1/ky, point1)
-                    distance2 = self.getDist_P2L_V2(p, 1/ky, point2)
+                    distance1 = self.getDist_P2L_V2(p, 1/self.ky, point1)
+                    distance2 = self.getDist_P2L_V2(p, 1/self.ky, point2)
                     if abs(distance1+distance2-parallelLineDistance) > tolerable_eer_thr:
                         print('warning: out of border')
                         cv2.circle(vis_frame, [int(pose[0][0]), int(
