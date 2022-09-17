@@ -24,6 +24,8 @@ def detect(opt):
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
         ('rtsp://', 'rtmp://', 'http://', 'https://'))
 
+    
+
     # Directories
     save_dir = increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok)  # increment run
     (save_dir / 'labels' if (save_txt or save_txt_tidl) else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
@@ -36,6 +38,7 @@ def detect(opt):
     # Load model
     model = attempt_load(weights, map_location=device)  # load FP32 model
     stride = int(model.stride.max())  # model stride
+    print('imgsz',imgsz)
     if isinstance(imgsz, (list,tuple)):
         assert len(imgsz) ==2; "height and width of image has to be specified"
         imgsz[0] = check_img_size(imgsz[0], s=stride)
@@ -54,6 +57,7 @@ def detect(opt):
 
     # Set Dataloader
     vid_path, vid_writer = None, None
+    print('imgsz',imgsz)
     if webcam:
         view_img = check_imshow()
         cudnn.benchmark = True  # set True to speed up constant image size inference
@@ -69,7 +73,7 @@ def detect(opt):
     CFG_INIT = True
     JUDGE_INVADE = False
 
-    mode = CFG_INIT
+    mode = JUDGE_INVADE
 
     for path, img, im0s, vid_cap in dataset:
         img = torch.from_numpy(img).to(device)
@@ -81,7 +85,7 @@ def detect(opt):
         # Inference
         t1 = time_synchronized()
         pred = model(img, augment=opt.augment)[0]
-        print(pred[...,4].max())
+        # print(pred[...,4].max())
         # Apply NMS
         pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms, kpt_label=kpt_label)
         t2 = time_synchronized()
@@ -92,6 +96,8 @@ def detect(opt):
 
         if mode == CFG_INIT:
             detector = Detector()
+        else:
+            detector = Detector(kx=-0.07352941176470588, ky=0.04956268)
 
         # Process detections
         for i, det in enumerate(pred):  # detections per image
@@ -100,11 +106,16 @@ def detect(opt):
             else:
                 p, s, im0, frame = path, '', im0s.copy(), getattr(dataset, 'frame', 0)
 
-            if mode == CFG_INIT:
-                output = np.array([out.cpu().numpy() for out in det])
-                for det_index in range(len(output)):
-                    kpts = output[det_index]
-                    detector.cfg_init("E:\\alert\onnx_inference\demo2\Se1.json", kpts, 0.3)
+            # if mode == CFG_INIT:
+            #     output = np.array([out.cpu().numpy() for out in det])
+            #     for det_index in range(len(output)):
+            #         kpts = output[det_index]
+            #         detector.cfg_init("E:\\alert\demo\demo1.json", kpts, 0.3)
+            # if mode == JUDGE_INVADE:
+            #     output = np.array([out.cpu().numpy() for out in det])
+            #     for det_index in range(len(output)):
+            #         kpts = output[det_index]
+            #         im0 = detector.judge3DInvade(kpts, "E:\\alert\demo\demo1.json", 0.3, im0.copy(), 25)
 
 
             p = Path(p)  # to Path
@@ -114,8 +125,20 @@ def detect(opt):
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
             if len(det):
                 # Rescale boxes from img_size to im0 size
+
                 scale_coords(img.shape[2:], det[:, :4], im0.shape, kpt_label=False)
                 scale_coords(img.shape[2:], det[:, 6:], im0.shape, kpt_label=kpt_label, step=3)
+
+                if mode == CFG_INIT:
+                    output = np.array([out.cpu().numpy() for out in det])
+                    for det_index in range(len(output)):
+                        kpts = output[det_index]
+                        detector.cfg_init("E:\\alert\demo\demo1.json", kpts, 0.3)
+                if mode == JUDGE_INVADE:
+                    output = np.array([out.cpu().numpy() for out in det])
+                    for det_index in range(len(output)):
+                        kpts = output[det_index]
+                        im0, _ = detector.judge3DInvade(kpts, "E:\\alert\demo\demo1.json", 0.3, im0.copy(), 25)
 
                 # Print results
                 for c in det[:, 5].unique():
@@ -172,6 +195,7 @@ def detect(opt):
                             save_path += '.mp4'
                         vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
                     vid_writer.write(im0)
+                    # vid_writer.write(img)
 
     if save_txt or save_txt_tidl or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt or save_txt_tidl else ''
@@ -182,9 +206,9 @@ def detect(opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='last.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='data/image', help='source')  # file/folder, 0 for webcam
-    parser.add_argument('--img-size', nargs= '+', type=int, default=640, help='inference size (pixels)')
+    parser.add_argument('--weights', nargs='+', type=str, default='weights/yolov5l6_pose_832_mix-finetune.pt', help='model.pt path(s)')
+    parser.add_argument('--source', type=str, default='demo/demo', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--img-size', nargs= '+', type=int, default=720, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
