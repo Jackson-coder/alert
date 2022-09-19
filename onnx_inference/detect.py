@@ -368,17 +368,17 @@ class Detector(object):
         else:
             return 'backward'
 
-    def regionJudge(self, json_file, pose_point, direction='up', scale=1):
+    def regionJudge(self, json_file, pose_point, mode='normal', scale=1):
         """判断是否是上扶梯远处的点
             json_file: 分割数据存储文件
             pose_point：目标点
-            direction：方向
+            mode: 是否是正常视角
             scale: 输入特征图相对于原始标注图像的缩放系数，>1为缩小
 
             return:
                 True or False
         """
-        if direction!='up':
+        if mode=='normal':
             return True
         with open(json_file, 'r', encoding='utf8')as fp:
             json_data = json.load(fp)
@@ -462,7 +462,7 @@ class Detector(object):
             self.__ky_buffer.append(ky)
 
 
-        if len(self.__ky_buffer)>0:
+        if len(self.__ky_buffer)>10:
             self.ky = np.mean(self.__ky_buffer)
             print('------垂直方向（x/y）：',self.ky,'------')
 
@@ -470,7 +470,7 @@ class Detector(object):
             # print('\n----------水平方向(角度)：',self.kx,'----------')
             # print('------垂直方向（x/y）：',self.ky,'------')
 
-    def judge3DInvade(self, output, json_file, kpt_thr, vis_frame, tolerable_eer_thr, direction='up', scale=1):
+    def judge3DInvade(self, output, json_file, kpt_thr, vis_frame, tolerable_eer_thr, mode='normal', scale=1):
         '''判断是否发生3D入侵
             json_file: 图像分割结果
 
@@ -482,7 +482,7 @@ class Detector(object):
             
             scale: 处理输出的视频帧相对于原始视频帧的缩小倍数
 
-            direction: 扶梯视角
+            mode: 相机安装是否过低, 正常情况下(不过低)为normal
 
             return:
                 vis_frame: 加入3D入侵警告的视频帧
@@ -642,8 +642,8 @@ class Detector(object):
             return vis_frame, False
 
         # 完整姿态
-        region_need_to_judge = self.regionJudge(json_file, pose[15], direction=direction, scale=1) and \
-            self.regionJudge(json_file, pose[16], direction=direction, scale=1)
+        region_need_to_judge = self.regionJudge(json_file, pose[15], mode=mode, scale=1) and \
+            self.regionJudge(json_file, pose[16], mode=mode, scale=1)
 
         if region_need_to_judge == False:
             if abs((pose[9][1]-pose[7][1])/(pose[9][0]-pose[7][0])) < 1 \
@@ -708,4 +708,4 @@ if __name__ == "__main__":
     # kpt_thr = 0.3
     # detector.cfg_init(json_file, output, kpt_thr)
     pose_point = [557, 439]
-    detector.regionJudge(json_file, pose_point, 'up')
+    detector.regionJudge(json_file, pose_point, 'unnormal')

@@ -75,6 +75,12 @@ def detect(opt):
 
     mode = JUDGE_INVADE
 
+    if mode == CFG_INIT:
+        detector = Detector()
+    else:
+        # detector = Detector(kx=-0.07352941176470588, ky=0.04956268)
+        detector = Detector(kx=-0.042328042328042326, ky=0.120428964)
+
     for path, img, im0s, vid_cap in dataset:
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
@@ -94,10 +100,7 @@ def detect(opt):
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
 
-        if mode == CFG_INIT:
-            detector = Detector()
-        else:
-            detector = Detector(kx=-0.07352941176470588, ky=0.04956268)
+        
 
         # Process detections
         for i, det in enumerate(pred):  # detections per image
@@ -105,18 +108,6 @@ def detect(opt):
                 p, s, im0, frame = path[i], '%g: ' % i, im0s[i].copy(), dataset.count
             else:
                 p, s, im0, frame = path, '', im0s.copy(), getattr(dataset, 'frame', 0)
-
-            # if mode == CFG_INIT:
-            #     output = np.array([out.cpu().numpy() for out in det])
-            #     for det_index in range(len(output)):
-            #         kpts = output[det_index]
-            #         detector.cfg_init("E:\\alert\demo\demo1.json", kpts, 0.3)
-            # if mode == JUDGE_INVADE:
-            #     output = np.array([out.cpu().numpy() for out in det])
-            #     for det_index in range(len(output)):
-            #         kpts = output[det_index]
-            #         im0 = detector.judge3DInvade(kpts, "E:\\alert\demo\demo1.json", 0.3, im0.copy(), 25)
-
 
             p = Path(p)  # to Path
             save_path = str(save_dir / p.name)  # img.jpg
@@ -133,12 +124,15 @@ def detect(opt):
                     output = np.array([out.cpu().numpy() for out in det])
                     for det_index in range(len(output)):
                         kpts = output[det_index]
-                        detector.cfg_init("E:\\alert\demo\demo1.json", kpts, 0.3)
+                        # detector.cfg_init("E:\\alert\demo\demo1.json", kpts, 0.3)
+                        detector.cfg_init("E:\\alert\demo\demo1\demo_v2.json", kpts, 0.3)
+                        if detector.kx is not None and detector.ky is not None:
+                            return
                 if mode == JUDGE_INVADE:
                     output = np.array([out.cpu().numpy() for out in det])
                     for det_index in range(len(output)):
                         kpts = output[det_index]
-                        im0, _ = detector.judge3DInvade(kpts, "E:\\alert\demo\demo1.json", 0.3, im0.copy(), 25)
+                        im0, _ = detector.judge3DInvade(kpts, "E:\\alert\demo\demo1\demo_v2.json", 0.3, im0.copy(), 45, mode='normal')
 
                 # Print results
                 for c in det[:, 5].unique():
