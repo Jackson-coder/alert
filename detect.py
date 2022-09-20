@@ -78,8 +78,8 @@ def detect(opt):
     if mode == CFG_INIT:
         detector = Detector()
     else:
-        # detector = Detector(kx=-0.07352941176470588, ky=0.04956268)
-        detector = Detector(kx=-0.042328042328042326, ky=0.120428964)
+        detector = Detector(kx=-0.07352941176470588, ky=0.04956268)
+        # detector = Detector(kx=-0.042328042328042326, ky=0.120428964)
 
     for path, img, im0s, vid_cap in dataset:
         img = torch.from_numpy(img).to(device)
@@ -99,9 +99,6 @@ def detect(opt):
         # Apply Classifier
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
-
-        
-
         # Process detections
         for i, det in enumerate(pred):  # detections per image
             if webcam:  # batch_size >= 1
@@ -124,15 +121,16 @@ def detect(opt):
                     output = np.array([out.cpu().numpy() for out in det])
                     for det_index in range(len(output)):
                         kpts = output[det_index]
-                        # detector.cfg_init("E:\\alert\demo\demo1.json", kpts, 0.3)
-                        detector.cfg_init("E:\\alert\demo\demo1\demo_v2.json", kpts, 0.3)
+                        detector.cfg_init("E:\\alert\demo\demo1.json", kpts, 0.3)
+                        # detector.cfg_init("E:\\alert\demo\demo1\demo_v2.json", kpts, 0.3)
                         if detector.kx is not None and detector.ky is not None:
                             return
                 if mode == JUDGE_INVADE:
                     output = np.array([out.cpu().numpy() for out in det])
                     for det_index in range(len(output)):
                         kpts = output[det_index]
-                        im0, _ = detector.judge3DInvade(kpts, "E:\\alert\demo\demo1\demo_v2.json", 0.3, im0.copy(), 45, mode='normal')
+                        im0, _ = detector.judge3DInvade(kpts, "E:\\alert\demo\demo1.json", 0.3, im0.copy(), mode='unnormal')
+                        # im0, _ = detector.judge3DInvade(kpts, "E:\\alert\demo\demo1\demo_v2.json", 0.3, im0.copy(), 45, mode='normal')
 
                 # Print results
                 for c in det[:, 5].unique():
@@ -151,7 +149,9 @@ def detect(opt):
                         c = int(cls)  # integer class
                         label = None if opt.hide_labels else (names[c] if opt.hide_conf else f'{names[c]} {conf:.2f}')
                         kpts = det[det_index, 6:]
+
                         plot_one_box(xyxy, im0, label=label, color=colors(c, True), line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3, orig_shape=im0.shape[:2])
+                        
                         if opt.save_crop:
                             save_one_box(xyxy, im0s, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
 

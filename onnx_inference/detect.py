@@ -470,15 +470,13 @@ class Detector(object):
             # print('\n----------水平方向(角度)：',self.kx,'----------')
             # print('------垂直方向（x/y）：',self.ky,'------')
 
-    def judge3DInvade(self, output, json_file, kpt_thr, vis_frame, tolerable_eer_thr, mode='normal', scale=1):
+    def judge3DInvade(self, output, json_file, kpt_thr, vis_frame, mode='normal', scale=1):
         '''判断是否发生3D入侵
             json_file: 图像分割结果
 
             kpt_thr: 姿态点置信阈值
 
             vis_frame: 输入视频
-
-            tolerable_eer_thr: 针对完整17关节点识别对象的边界容错阈值
             
             scale: 处理输出的视频帧相对于原始视频帧的缩小倍数
 
@@ -685,9 +683,15 @@ class Detector(object):
                 cv2.circle(vis_frame, point, 5, (255, 0, 0), 8)
             parallelLineDistance = self.getDist_P2L_V2(
                 point1, 1/self.ky, point2)
+
+            shoulder = (pose[5] + pose[6]) / 2
+            hip = (pose[11] + pose[12]) / 2
+            tolerable_eer_thr = abs(hip[1] - shoulder[1]) *0.5
+
             for p in pose:
                 distance1 = self.getDist_P2L_V2(p, 1/self.ky, point1)
                 distance2 = self.getDist_P2L_V2(p, 1/self.ky, point2)
+                
                 if abs(distance1+distance2-parallelLineDistance) > tolerable_eer_thr:
                     print('warning: out of border')
                     cv2.circle(vis_frame, [int(pose[0][0]), int(
