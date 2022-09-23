@@ -88,7 +88,7 @@ class Detector(object):
 
             # print(point1, point2)
 
-            return (point1[1]-point2[1])/(point1[0]-point2[0])
+            return (point1[1]-point2[1])/(point1[0]-point2[0]+1e-10)
 
     # def getVerticalSlope(self, pose_results, kpt_thr):
 
@@ -129,7 +129,7 @@ class Detector(object):
             ankle = (pose[15] + pose[16])/2
             hip = (pose[11] + pose[12])/2
             
-            return (ankle[0]-hip[0])/(ankle[1]-hip[1])
+            return (ankle[0]-hip[0])/(ankle[1]-hip[1]+1e-10)
         else:
             return
 
@@ -158,7 +158,7 @@ class Detector(object):
         # 求直线方程
         A, B, C = self.getLine(a, b)
         # 代入点到直线距离公式
-        distance = (A*P[0]+B*P[1]+C)/math.sqrt(A*A+B*B)
+        distance = (A*P[0]+B*P[1]+C)/math.sqrt(A*A+B*B+1e-10)
 
         return distance
 
@@ -407,10 +407,10 @@ class Detector(object):
             min_y2 = 1000
 
             for i in range(len(step)):
-                if abs((step[i][0]-vetuex1[0])/(step[i][1]-vetuex1[1]))<1 and step[i][1]<min_y1:
+                if abs((step[i][0]-vetuex1[0])/(step[i][1]-vetuex1[1]+1e-10))<1 and step[i][1]<min_y1:
                     min_y1 = step[i][1]
                     point1 = step[i]
-                if abs((step[i][0]-vetuex2[0])/(step[i][1]-vetuex2[1]))<1 and step[i][1]<min_y2:
+                if abs((step[i][0]-vetuex2[0])/(step[i][1]-vetuex2[1]+1e-10))<1 and step[i][1]<min_y2:
                     min_y2 = step[i][1]
                     point2 = step[i]
             distance = self.getDist_P2L_V1(pose_point, point1, point2)
@@ -532,7 +532,7 @@ class Detector(object):
             pose[11][2] > kpt_thr and \
                 pose[12][2] > kpt_thr:
             hip = (pose[11] + pose[12])/2
-            if abs((pose[0][0]-hip[0])/(pose[0][1]-hip[1])) > 0.35:
+            if abs((pose[0][0]-hip[0])/(pose[0][1]-hip[1]+1e-10)) > 0.35:
                 Crookedhead = True
             else:
                 Crookedhead = False
@@ -565,13 +565,13 @@ class Detector(object):
             # 内外都有，手部伸展
             elif out_border != 0 and in_border != 0:
                 if self.judge2DborderIn(json_file, P=pose[9], score_threshold=kpt_thr, kx=self.kx, scale=scale) == False:
-                    if abs((pose[9][1]-pose[7][1])/(pose[9][0]-pose[7][0])) < 1 and abs((pose[5][1]-pose[7][1])/(pose[5][0]-pose[7][0])) < 1:
+                    if abs((pose[9][1]-pose[7][1])/(pose[9][0]-pose[7][0]+1e-10)) < 1 and abs((pose[5][1]-pose[7][1])/(pose[5][0]-pose[7][0]+1e-10)) < 1:
                         p = [int(pose[9][0]), int(pose[9][1])]
                         cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
                         print('warning3: out of border')
                         return vis_frame, True
                 elif self.judge2DborderIn(json_file, P=pose[10], score_threshold=kpt_thr, kx=self.kx, scale=scale) == False:
-                    if abs((pose[10][1]-pose[8][1])/(pose[10][0]-pose[8][0])) < 1 and abs((pose[6][1]-pose[8][1])/(pose[6][0]-pose[8][0])) < 1:
+                    if abs((pose[10][1]-pose[8][1])/(pose[10][0]-pose[8][0]+1e-10)) < 1 and abs((pose[6][1]-pose[8][1])/(pose[6][0]-pose[8][0]+1e-10)) < 1:
                         p = [int(pose[10][0]), int(pose[10][1])]
                         cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
                         print('warning4: out of border')
@@ -644,15 +644,15 @@ class Detector(object):
             self.regionJudge(json_file, pose[16], mode=mode, scale=1)
 
         if region_need_to_judge == False:
-            if abs((pose[9][1]-pose[7][1])/(pose[9][0]-pose[7][0])) < 1 \
-                    and abs((pose[5][1]-pose[7][1])/(pose[5][0]-pose[7][0])) < 1 \
+            if abs((pose[9][1]-pose[7][1])/(pose[9][0]-pose[7][0]+1e-10)) < 1 \
+                    and abs((pose[5][1]-pose[7][1])/(pose[5][0]-pose[7][0]+1e-10)) < 1 \
                         and self.judge2DfarBorderIn(json_file, pose[9]):
                 p = [int(pose[9][0]), int(pose[9][1])]
                 cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
                 print('warning6: out of border')
                 return vis_frame, True
-            elif abs((pose[10][1]-pose[8][1])/(pose[10][0]-pose[8][0])) < 1 \
-                     and abs((pose[6][1]-pose[8][1])/(pose[6][0]-pose[8][0])) < 1 \
+            elif abs((pose[10][1]-pose[8][1])/(pose[10][0]-pose[8][0]+1e-10)) < 1 \
+                     and abs((pose[6][1]-pose[8][1])/(pose[6][0]-pose[8][0]+1e-10)) < 1 \
                          and self.judge2DfarBorderIn(json_file, pose[10]):
                 p = [int(pose[10][0]), int(pose[10][1])]
                 cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
