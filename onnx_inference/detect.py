@@ -494,7 +494,6 @@ class Detector(object):
 
         pose = output[6:]
         pose = np.reshape(pose,(17, 3))
-        print(pose)
         pose_score = output[4]
 
         flag = True
@@ -566,13 +565,13 @@ class Detector(object):
             # 内外都有，手部伸展
             elif out_border != 0 and in_border != 0:
                 if self.judge2DborderIn(json_file, P=pose[9], score_threshold=kpt_thr, kx=self.kx, scale=scale) == False:
-                    if abs((pose[9][1]-pose[7][1])/(pose[9][0]-pose[7][0]+1e-10)) < 1:# and abs((pose[5][1]-pose[7][1])/(pose[5][0]-pose[7][0]+1e-10)) < 1:
+                    if abs((pose[9][1]-pose[7][1])/(pose[9][0]-pose[7][0]+1e-10)) < 1 and abs((pose[5][1]-pose[7][1])/(pose[5][0]-pose[7][0]+1e-10)) < 2:
                         p = [int(pose[9][0]), int(pose[9][1])]
                         cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
                         print('warning3: out of border')
                         return vis_frame, True
                 elif self.judge2DborderIn(json_file, P=pose[10], score_threshold=kpt_thr, kx=self.kx, scale=scale) == False:
-                    if abs((pose[10][1]-pose[8][1])/(pose[10][0]-pose[8][0]+1e-10)) < 1:# and abs((pose[6][1]-pose[8][1])/(pose[6][0]-pose[8][0]+1e-10)) < 1:
+                    if abs((pose[10][1]-pose[8][1])/(pose[10][0]-pose[8][0]+1e-10)) < 1 and abs((pose[6][1]-pose[8][1])/(pose[6][0]-pose[8][0]+1e-10)) < 2:
                         p = [int(pose[10][0]), int(pose[10][1])]
                         cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
                         print('warning4: out of border')
@@ -675,7 +674,7 @@ class Detector(object):
 
         # if len(crossPoints) != 0:
         if len(crossPoints) > 3:
-            if pose[15][1] > pose[16][1]:
+            if pose[15][1] < pose[16][1]:
                 point1, point2 = self.getNearestCrossPoints(crossPoints, pose[15])
             else:
                 point1, point2 = self.getNearestCrossPoints(crossPoints, pose[16])
@@ -687,15 +686,21 @@ class Detector(object):
 
             shoulder = (pose[5] + pose[6]) / 2
             hip = (pose[11] + pose[12]) / 2
-            tolerable_eer_thr = abs(hip[1] - shoulder[1]) *0.5
+
+            tolerable_eer_thr_head = abs(hip[1] - shoulder[1]) *0.3
+            tolerable_eer_thr_pose = abs(hip[1] - shoulder[1]) *0.5
 
             pose[2:11, :], pose[0:2, :] = pose[0:9, :].copy(), pose[9:11, :].copy()
 
-            for p in pose:
+            for i in range(17):
+                tolerable_eer_thr = tolerable_eer_thr_pose if i!=2 else tolerable_eer_thr_head
+
+                p = pose[i]
                 distance1 = self.getDist_P2L_V2(p, 1/self.ky, point1)
                 distance2 = self.getDist_P2L_V2(p, 1/self.ky, point2)
                 
                 if abs(distance1+distance2-parallelLineDistance) > tolerable_eer_thr:
+                    print(abs(distance1+distance2-parallelLineDistance), tolerable_eer_thr)
                     print('warning: out of border')
                     cv2.circle(vis_frame, [int(p[0]), int(
                         p[1])], 10, (0, 0, 255), 8)
