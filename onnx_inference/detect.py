@@ -666,7 +666,7 @@ class Detector(object):
             return vis_frame, False
 
         # 水平交点
-        if pose[15][1] > pose[16][1]:
+        if pose[15][1] < pose[16][1]:
             crossPoints = self.getCrossPoints(json_file, kx=self.kx, P=pose[15], scale=scale)
         else:
             crossPoints = self.getCrossPoints(json_file, kx=self.kx, P=pose[16], scale=scale)
@@ -687,7 +687,7 @@ class Detector(object):
             shoulder = (pose[5] + pose[6]) / 2
             hip = (pose[11] + pose[12]) / 2
 
-            tolerable_eer_thr_head = abs(hip[1] - shoulder[1]) *0.3
+            tolerable_eer_thr_head = abs(hip[1] - shoulder[1]) *0.2
             tolerable_eer_thr_pose = abs(hip[1] - shoulder[1]) *0.5
 
             pose[2:11, :], pose[0:2, :] = pose[0:9, :].copy(), pose[9:11, :].copy()
