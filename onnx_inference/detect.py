@@ -2,72 +2,30 @@ import cv2
 import json
 import math
 import numpy as np
-
+from sklearn import linear_model
+# import pylab as pl
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as pl
 
 class Detector(object):
     '''Tutorial
 
-    CFG_INIT = True
-    JUDGE_INVADE = False
-
-    mode = CFG_INIT
-
-    if mode == CFG_INIT:
-        detector = Detector()
-        for frame_id in range(100):
-            detector.cfg_init(...)
-        print(detector.kx, detector.ky)
-
-    elif mode == JUDGE_INVADE:
-        detector = Detector(kx, ky)
-        outputFrame = detector.judge3DInvade(...)
+    detector = Detector(conf_file)
+    outputFrame, invade_flag = detector.judge3DInvade(kpts, kpt_score, im0.copy(), mode='normal')
 
 
     '''
 
-    def __init__(self, kx=None, ky=None):
-        self.__ky_buffer = []
-        self.kx = kx
-        self.ky = ky
+    def __init__(self, json_file, scale=1):
+        # self.__ky_buffer = []
+        # self.__hip_buffer = []
+        self.json_file = json_file
+        self.scale = scale          #scale: 原图相对于处理图的倍率,输入特征图相对于原始标注图像的缩放系数，>1为缩小
+        self.kx = self.getHorizonSlope()
 
-    # def getHorizonSlope(self, cur_frame):
-    #     image = cv2.cvtColor(cur_frame, cv2.COLOR_BGR2HSV)
-    #     image = cv2.inRange(image,np.array([0,0,0]),np.array([210,255,86]))
-    #     cv2.bitwise_not(image,image)
-    #     kernel = np.ones((5, 5), np.uint8)
-    #     image = cv2.dilate(image, kernel, iterations = 1)
-    #     contours, hierarchy = cv2.findContours(image, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
-    #     # cv2.drawContours(cur_frame,contours,-1,(0,0,255),3)
-
-    #     kx = 10000
-
-    #     for c in contours:
-
-    #         if cv2.contourArea(c) < 20000 or cv2.contourArea(c) > 50000:
-    #             continue
-    #         # 找到边界坐标
-    #         x, y, w, h = cv2.boundingRect(c)  # 计算点集最外面的矩形边界
-    #         cv2.rectangle(image, (x, y), (x+w, y+h), (0, 255, 0), 2)
-
-    #         # 找面积最小的矩形
-    #         rect = cv2.minAreaRect(c)
-    #         # 得到最小矩形的坐标
-    #         box = cv2.boxPoints(rect)
-
-    #         # 标准化坐标到整数
-    #         box = np.int0(box)
-    #         # 画出边界
-    #         cv2.drawContours(cur_frame, [box], 0, (0, 0, 255), 3)
-
-    #         kx = rect[2] if abs(rect[2])<abs(kx) else kx
-
-    #     cv2.drawContours(image, contours, -1, (255, 0, 0), 1)
-    #     cv2.imwrite("demo1.jpg", image)
-    #     cv2.imwrite("demo2.jpg", cur_frame)
-    #     return kx
-
-    def getHorizonSlope(self, json_file, scale=1):
-        with open(json_file, 'r', encoding='utf8')as fp:
+    def getHorizonSlope(self):
+        with open(self.json_file, 'r', encoding='utf8')as fp:
             json_data = json.load(fp)
             # alert1 = json_data['shapes'][0]['points']
             # alert2 = json_data['shapes'][1]['points']
@@ -75,7 +33,7 @@ class Detector(object):
             step = json_data['step']
 
             for i in range(len(step)):
-                step[i] = [int(step[i][0]/scale), int(step[i][1]/scale)]
+                step[i] = [int(step[i][0]/self.scale), int(step[i][1]/self.scale)]
 
             point1 = point2 = [0, 0]
 
@@ -85,46 +43,13 @@ class Detector(object):
                     point1 = point
                 elif point[1] > point2[1]:
                     point2 = point
+            
+            kx = (point1[1]-point2[1])/(point1[0]-point2[0]+1e-10)
+            print('\n----------水平方向(角度)：',kx,'----------')
+            return kx
 
-            # print(point1, point2)
-
-            return (point1[1]-point2[1])/(point1[0]-point2[0]+1e-10)
-
-    # def getVerticalSlope(self, pose_results, kpt_thr):
-
-    #     ky = []
-
-    #     for pose in pose_results:
-    #         flag = True
-    #         for p in pose:
-    #             flag = bool(p[2] > kpt_thr)
-    #             if flag is False:
-    #                 break
-
-    #         # 完整姿态
-    #         if flag is False:
-    #             continue
-
-    #         ankle = (pose[15] + pose[16])/2
-    #         hip = (pose[11] + pose[12])/2
-
-    #         ky.append((ankle[0]-hip[0])/(ankle[1]-hip[1]))
-
-    #     return np.mean(ky)
 
     def getVerticalSlope(self, pose, kpt_thr):
-
-        # flag = True
-        # for p in pose:
-        #     flag = bool(p[2] > kpt_thr)
-        #     if flag is False:
-        #         break
-
-        # # 不是完整姿态
-        # if flag is False:
-        #     return
-
-
         if pose[15][2] > kpt_thr and pose[16][2] > kpt_thr and pose[11][2] > kpt_thr and pose[12][2] > kpt_thr:
             ankle = (pose[15] + pose[16])/2
             hip = (pose[11] + pose[12])/2
@@ -201,18 +126,16 @@ class Detector(object):
         else:
             return crossPoint, False
 
-    def getCrossPoints(self, json_file='/home/lyh/mmpose/tests/data/coco/1.json', kx=0, P=[960, 540, 1], scale=1.5):
+    def getCrossPoints(self, kx=0, P=[960, 540, 1]):
         """寻找交点
-            json_file: 分割数据存储文件
             k：斜率
             P：定点坐标
-            scale: 原图相对于处理图的倍率
 
             return:
                 Points:[levelpoint1, levelpoint2, levelpoint3,
                     levelpoint4, verticalpoint1, verticalpoint2]
         """
-        with open(json_file, 'r', encoding='utf8')as fp:
+        with open(self.json_file, 'r', encoding='utf8')as fp:
             json_data = json.load(fp)
             # alert1 = json_data['shapes'][0]['points']
             # alert2 = json_data['shapes'][1]['points']
@@ -221,10 +144,10 @@ class Detector(object):
             alert2 = json_data['right baffle']
 
             for i in range(len(alert1)):
-                alert1[i] = [int(alert1[i][0]/scale), int(alert1[i][1]/scale)]
+                alert1[i] = [int(alert1[i][0]/self.scale), int(alert1[i][1]/self.scale)]
 
             for i in range(len(alert2)):
-                alert2[i] = [int(alert2[i][0]/scale), int(alert2[i][1]/scale)]
+                alert2[i] = [int(alert2[i][0]/self.scale), int(alert2[i][1]/self.scale)]
 
             # 水平交点
             Points = []
@@ -268,18 +191,16 @@ class Detector(object):
         return point1, point2
 
 
-    def judge2DborderIn(self, json_file='/home/lyh/mmpose/tests/data/coco/1.json', kx=0, P=[960, 540, 1], score_threshold=0.3, scale=1.5):
+    def judge2DborderIn(self, kx=0, P=[960, 540, 1], score_threshold=0.3):
         """判断点是否在二维区域内部
-            json_file: 分割数据存储文件
             P：目标点
             kx：水平线斜率
             score_threshold：姿态点置信度
-            scale: 输入特征图相对于原始标注图像的缩放系数，>1为缩小
 
             return:
                 True or False
         """
-        Points = self.getCrossPoints(json_file, kx, P, scale)
+        Points = self.getCrossPoints(kx, P)
 
         if P[2] < score_threshold:
             return True
@@ -292,17 +213,15 @@ class Detector(object):
         else:
             return False
 
-    def judge2DfarBorderIn(self, json_file, pose, score_threshold=0.3, scale=1):
+    def judge2DfarBorderIn(self, pose, score_threshold=0.3):
         """判断远处的点是否在二维区域内部
-            json_file: 分割数据存储文件
             pose：目标点
             score_threshold：姿态点置信度
-            scale: 输入特征图相对于原始标注图像的缩放系数，>1为缩小
 
             return:
                 True or False
         """
-        with open(json_file, 'r', encoding='utf8')as fp:
+        with open(self.json_file, 'r', encoding='utf8')as fp:
             json_data = json.load(fp)
 
             alert1 = json_data['left baffle']
@@ -311,7 +230,7 @@ class Detector(object):
             left_point1 = [0,0]
             left_point2 = [0,0]
             for i in range(len(alert1)):
-                alert1[i] = [int(alert1[i][0]/scale), int(alert1[i][1]/scale)]
+                alert1[i] = [int(alert1[i][0]/self.scale), int(alert1[i][1]/self.scale)]
                 if alert1[i][0]>left_point1[0]:
                     left_point2 = left_point1
                     left_point1 = alert1[i]
@@ -322,7 +241,7 @@ class Detector(object):
             right_point1 = [10000,10000]
             right_point2 = [10000,10000]
             for i in range(len(alert2)):
-                alert2[i] = [int(alert2[i][0]/scale), int(alert2[i][1]/scale)]
+                alert2[i] = [int(alert2[i][0]/self.scale), int(alert2[i][1]/self.scale)]
                 if alert2[i][0]<right_point1[0]:
                     right_point2 = right_point1
                     right_point1 = alert2[i]
@@ -368,25 +287,23 @@ class Detector(object):
         else:
             return 'backward'
 
-    def regionJudge(self, json_file, pose_point, mode='normal', scale=1):
+    def regionJudge(self, pose_point, mode='normal'):
         """判断是否是上扶梯远处的点
-            json_file: 分割数据存储文件
             pose_point：目标点
             mode: 是否是正常视角
-            scale: 输入特征图相对于原始标注图像的缩放系数，>1为缩小
 
             return:
                 True or False
         """
         if mode=='normal':
             return True
-        with open(json_file, 'r', encoding='utf8')as fp:
+        with open(self.json_file, 'r', encoding='utf8')as fp:
             json_data = json.load(fp)
 
             step = json_data['step']
 
             for i in range(len(step)):
-                step[i] = [int(step[i][0]/scale), int(step[i][1]/scale)]
+                step[i] = [int(step[i][0]/self.scale), int(step[i][1]/self.scale)]
             points = np.array([step], dtype=np.int32)
             rect = cv2.minAreaRect(points)
             box = cv2.boxPoints(rect)
@@ -421,64 +338,49 @@ class Detector(object):
             else:
                 return True
             
-    def need_judge(self, json_file, pose_result, kpt_thr, scale=1):
-        with open(json_file, 'r', encoding='utf8')as fp:
+    def is_in_poly(self, p, poly):
+        """
+    :param p: [x, y]
+    :param poly: [[], [], [], [], ...]
+    :return:
+    """
+        px, py, _ = p
+        is_in = False
+        for i, corner in enumerate(poly):
+            next_i = i + 1 if i + 1 < len(poly) else 0
+            x1, y1 = corner
+            x2, y2 = poly[next_i]
+            if (x1 == px and y1 == py) or (x2 == px and y2 == py):  # if point is on vertex
+                is_in = True
+                break
+            if min(y1, y2) < py <= max(y1, y2):  # find horizontal edges of polygon
+                x = x1 + (py - y1) * (x2 - x1) / (y2 - y1)
+                if x == px:  # if point is on edge
+                    is_in = True
+                    break
+                elif x > px:  # if point is on left-side of line
+                    is_in = not is_in
+        return is_in
+
+    def need_judge(self, pose_results, kpt_thr):
+        with open(self.json_file, 'r', encoding='utf8')as fp:
             json_data = json.load(fp)
-
             step = json_data['step']
+            floor_plate = json_data["floor plate"]
 
-            max_yi = [0,0]
-            min_yi = [10000,10000]
+            if self.is_in_poly(pose_results[15], floor_plate) or self.is_in_poly(pose_results[16], floor_plate):
+                return False
+            elif self.is_in_poly(pose_results[15], step) or self.is_in_poly(pose_results[16], step):
+                return True
+            else:
+                return False
 
-            for i in range(len(step)):
-                step[i] = [int(step[i][0]/scale), int(step[i][1]/scale)]
-                max_yi = step[i] if max_yi[1] < step[i][1] else max_yi
-                min_yi = step[i] if min_yi[1] > step[i][1] else min_yi
-
-            if pose_result[2] > kpt_thr:
-                if pose_result[1] < min_yi[1] or pose_result[1] > max_yi[1]:
-                    return False
-
-            return True
-
-    def cfg_init(self, json_file, output, kpt_thr):
-
-        # pose_results = output[:, 6:]
-        # pose_results = np.reshape(pose_results,(-1, 17, 3))
-        # pose_scores = output[:, 4]
-
-        pose_result = output[6:]
-        pose_result = np.reshape(pose_result,(17, 3))
-        pose_score = output[4]
-
-        if self.kx == None:
-            self.kx = self.getHorizonSlope(json_file)
-            print('\n----------水平方向(角度)：',self.kx,'----------')
-
-        ky = self.getVerticalSlope(pose_result, kpt_thr)
-        print('ky is not None:', ky is not None)
-        print('np.isnan(ky) == False:',np.isnan(ky) == False)
-        if ky is not None and np.isnan(ky) == False:
-            self.__ky_buffer.append(ky)
-
-
-        if len(self.__ky_buffer)>10:
-            self.ky = np.mean(self.__ky_buffer)
-            print('------垂直方向（x/y）：',self.ky,'------')
-
-        # if self.kx != None and self.ky != None:
-            # print('\n----------水平方向(角度)：',self.kx,'----------')
-            # print('------垂直方向（x/y）：',self.ky,'------')
-
-    def judge3DInvade(self, output, json_file, kpt_thr, vis_frame, mode='normal', scale=1):
+    def judge3DInvade(self, output, kpt_thr, vis_frame, mode='normal'):
         '''判断是否发生3D入侵
-            json_file: 图像分割结果
 
             kpt_thr: 姿态点置信阈值
 
             vis_frame: 输入视频
-            
-            scale: 处理输出的视频帧相对于原始视频帧的缩小倍数
 
             mode: 相机安装是否过低, 正常情况下(不过低)为normal
 
@@ -486,7 +388,7 @@ class Detector(object):
                 vis_frame: 加入3D入侵警告的视频帧
         '''
 
-        assert self.kx!=None and self.ky!=None
+        assert self.kx!=None
 
         # pose_results = output[:, 6:]
         # pose_results = np.reshape(pose_results,(-1, 17, 3))
@@ -509,19 +411,18 @@ class Detector(object):
         # if direction != self.judgeDirection(pose, kpt_thr): # judgeDirection 将在第三版代码更新后去除，将使用跟踪位移方向判断人的移动方向
         #                                                 # 异常动作如 侧面歪头 和 侧面伸腿 将使用跟踪协助判断
         #     continue
-        if pose_score < 0.3:
+        if pose_score < 0.5:#0.8
             return vis_frame, False
 
-        if self.need_judge(json_file, pose[15], kpt_thr, scale=scale) == False or \
-            self.need_judge(json_file, pose[16], kpt_thr, scale=scale) == False:
+        if self.need_judge(pose, kpt_thr) == False:
             return vis_frame, False
 
         # 踢腿出界
-        if self.judge2DborderIn(json_file, P=pose[15], score_threshold=kpt_thr, kx=self.kx, scale=scale) == False:
+        if self.judge2DborderIn(P=pose[15], score_threshold=kpt_thr, kx=self.kx) == False:
             cv2.circle(vis_frame, [int(pose[15][0]), int(pose[15][1])], 5, (0, 0, 255), 8)
             print('warning5: leg out of border')
             return vis_frame, True
-        if self.judge2DborderIn(json_file, P=pose[16], score_threshold=kpt_thr, kx=self.kx, scale=scale) == False:
+        if self.judge2DborderIn(P=pose[16], score_threshold=kpt_thr, kx=self.kx) == False:
             cv2.circle(vis_frame, [int(pose[16][0]), int(pose[16][1])], 5, (0, 0, 255), 8)
             print('warning5: leg out of border')
             return vis_frame, True
@@ -532,7 +433,7 @@ class Detector(object):
             pose[11][2] > kpt_thr and \
                 pose[12][2] > kpt_thr:
             hip = (pose[11] + pose[12])/2
-            if abs((pose[0][0]-hip[0])/(pose[0][1]-hip[1]+1e-10)) > 0.35:
+            if abs((pose[0][0]-hip[0])/(pose[0][1]-hip[1]+1e-10)) > 0.5:
                 Crookedhead = True
             else:
                 Crookedhead = False
@@ -543,9 +444,9 @@ class Detector(object):
             in_border = 0
             out_border = 0
             for p in pose:
-                if self.judge2DborderIn(json_file, P=p, score_threshold=kpt_thr, kx=self.kx, scale=scale): 
+                if self.judge2DborderIn(P=p, score_threshold=kpt_thr, kx=self.kx): 
                     in_border += 1
-                elif not self.judge2DborderIn(json_file, P=p, score_threshold=kpt_thr, kx=self.kx, scale=scale):
+                elif not self.judge2DborderIn(P=p, score_threshold=kpt_thr, kx=self.kx):
                     out_border += 1
 
             # 全部出界
@@ -555,8 +456,8 @@ class Detector(object):
                 print('warning1: out of border')
                 return vis_frame, True
             # 内外都有，手在内部，头部歪曲
-            elif self.judge2DborderIn(json_file, P=pose[9], score_threshold=kpt_thr, kx=self.kx, scale=scale) == True and \
-                self.judge2DborderIn(json_file, P=pose[10], score_threshold=kpt_thr, kx=self.kx, scale=scale) == True and \
+            elif self.judge2DborderIn(P=pose[9], score_threshold=kpt_thr, kx=self.kx) == True and \
+                self.judge2DborderIn(P=pose[10], score_threshold=kpt_thr, kx=self.kx) == True and \
                     Crookedhead is True and out_border != 0 and in_border != 0:
                 cv2.circle(vis_frame, [int(pose[0][0]),
                         int(pose[0][1])], 5, (0, 0, 255), 8)
@@ -564,112 +465,66 @@ class Detector(object):
                 return vis_frame, True
             # 内外都有，手部伸展
             elif out_border != 0 and in_border != 0:
-                if self.judge2DborderIn(json_file, P=pose[9], score_threshold=kpt_thr, kx=self.kx, scale=scale) == False:
-                    if abs((pose[9][1]-pose[7][1])/(pose[9][0]-pose[7][0]+1e-10)) < 1 and abs((pose[5][1]-pose[7][1])/(pose[5][0]-pose[7][0]+1e-10)) < 2:
+                if self.judge2DborderIn(P=pose[9], score_threshold=kpt_thr, kx=self.kx) == False:
+                    if abs((pose[9][1]-pose[7][1])/abs(pose[9][0]-pose[7][0]+1e-10)) < 1 and abs((pose[5][1]-pose[7][1])/abs(pose[5][0]-pose[7][0]+1e-10)) < 2:
                         p = [int(pose[9][0]), int(pose[9][1])]
                         cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
                         print('warning3: out of border')
                         return vis_frame, True
-                elif self.judge2DborderIn(json_file, P=pose[10], score_threshold=kpt_thr, kx=self.kx, scale=scale) == False:
-                    if abs((pose[10][1]-pose[8][1])/(pose[10][0]-pose[8][0]+1e-10)) < 1 and abs((pose[6][1]-pose[8][1])/(pose[6][0]-pose[8][0]+1e-10)) < 2:
+                elif self.judge2DborderIn(P=pose[10], score_threshold=kpt_thr, kx=self.kx) == False:
+                    if abs((pose[10][1]-pose[8][1])/abs(pose[10][0]-pose[8][0]+1e-10)) < 1 and abs((pose[6][1]-pose[8][1])/abs(pose[6][0]-pose[8][0]+1e-10)) < 2:
                         p = [int(pose[10][0]), int(pose[10][1])]
                         cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
                         print('warning4: out of border')
                         return vis_frame, True
-
-            # elif out_border != 0 and in_border != 0:
-            #     if self.judge2DborderIn(json_file, P=pose[9], score_threshold=kpt_thr, kx=self.kx, scale=scale) == False and pose[15][2]<0.5 and pose[16][2]<0.5:
-            #         if abs((pose[9][1]-pose[7][1])/(pose[9][0]-pose[7][0])) < 2:
-            #             p = [int(pose[9][0]), int(pose[9][1])]
-            #             cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
-            #             print('warning3: out of border')
-            #     elif self.judge2DborderIn(json_file, P=pose[10], score_threshold=kpt_thr, kx=self.kx, scale=scale) == False and pose[15][2]<0.5 and pose[16][2]<0.5:
-            #         if abs((pose[10][1]-pose[8][1])/(pose[10][0]-pose[8][0])) < 2:
-            #             p = [int(pose[10][0]), int(pose[10][1])]
-            #             cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
-            #             print('warning4: out of border')
-            #     elif pose[15][2]>0.5 and pose[16][2]<0.5:
-            #         crossPoints = self.getCrossPoints(json_file, kx=self.kx, P=pose[15], scale=scale)
-            #         if len(crossPoints) > 3:
-            #             point1, point2 = self.getNearestCrossPoints(crossPoints, pose[15])
-                    
-            #             if (pose[9][0]-point1[0]) * (pose[9][0]-point2[0]) > 0 and pose[9][2]>0.5:
-            #                 p = [int(pose[9][0]), int(pose[9][1])]
-            #                 cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
-            #                 print('warning6: out of border')
-            #             elif (pose[10][0]-point1[0]) * (pose[10][0]-point2[0]) > 0 and pose[10][2]>0.5:
-            #                 p = [int(pose[10][0]), int(pose[10][1])]
-            #                 cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
-            #                 print('warning6: out of border')
-
-            #     elif pose[15][2]<0.5 and pose[16][2]>0.5:
-            #         crossPoints = self.getCrossPoints(json_file, kx=self.kx, P=pose[16], scale=scale)
-            #         if len(crossPoints) > 3:
-            #             point1, point2 = self.getNearestCrossPoints(crossPoints, pose[16])
-                        
-            #             if (pose[9][0]-point1[0]) * (pose[9][0]-point2[0]) > 0 and pose[9][2]>0.5:
-            #                 p = [int(pose[9][0]), int(pose[9][1])]
-            #                 cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
-            #                 print('warning6: out of border')
-            #             elif (pose[10][0]-point1[0]) * (pose[10][0]-point2[0]) > 0 and pose[10][2]>0.5:
-            #                 p = [int(pose[10][0]), int(pose[10][1])]
-            #                 cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
-            #                 print('warning6: out of border')
-                
-            #     elif pose[15][2]>0.5 and pose[16][2]>0.5:
-            #         if pose[15][1] > pose[16][1]:
-            #             crossPoints = self.getCrossPoints(json_file, kx=self.kx, P=pose[15], scale=scale)
-            #         else:
-            #             crossPoints = self.getCrossPoints(json_file, kx=self.kx, P=pose[16], scale=scale)
-
-            #         if len(crossPoints) > 3:
-            #             if pose[15][1] > pose[16][1]:
-            #                 point1, point2 = self.getNearestCrossPoints(crossPoints, pose[15])
-            #             else:
-            #                 point1, point2 = self.getNearestCrossPoints(crossPoints, pose[16])
-
-            #             if (pose[9][0]-point1[0]) * (pose[9][0]-point2[0]) > 0 and pose[9][2]>0.5:
-            #                 p = [int(pose[9][0]), int(pose[9][1])]
-            #                 cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
-            #                 print('warning6: out of border')
-            #             elif (pose[10][0]-point1[0]) * (pose[10][0]-point2[0]) > 0 and pose[10][2]>0.5:
-            #                 p = [int(pose[10][0]), int(pose[10][1])]
-            #                 cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
-            #                 print('warning6: out of border')
-
             return vis_frame, False
 
         # 完整姿态
-        region_need_to_judge = self.regionJudge(json_file, pose[15], mode=mode, scale=1) and \
-            self.regionJudge(json_file, pose[16], mode=mode, scale=1)
+        region_need_to_judge = self.regionJudge(pose[15], mode=mode) and \
+            self.regionJudge(pose[16], mode=mode)
 
         if region_need_to_judge == False:
-            if abs((pose[9][1]-pose[7][1])/(pose[9][0]-pose[7][0]+1e-10)) < 1 \
-                    and abs((pose[5][1]-pose[7][1])/(pose[5][0]-pose[7][0]+1e-10)) < 1 \
-                        and self.judge2DfarBorderIn(json_file, pose[9]):
+            if abs((pose[9][1]-pose[7][1])/abs(pose[9][0]-pose[7][0]+1e-10)) < 1 \
+                    and abs((pose[5][1]-pose[7][1])/abs(pose[5][0]-pose[7][0]+1e-10)) < 2 \
+                        and self.judge2DfarBorderIn(pose[9], kpt_thr):
                 p = [int(pose[9][0]), int(pose[9][1])]
                 cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
                 print('warning6: out of border')
                 return vis_frame, True
-            elif abs((pose[10][1]-pose[8][1])/(pose[10][0]-pose[8][0]+1e-10)) < 1 \
-                     and abs((pose[6][1]-pose[8][1])/(pose[6][0]-pose[8][0]+1e-10)) < 1 \
-                         and self.judge2DfarBorderIn(json_file, pose[10]):
+            elif abs((pose[10][1]-pose[8][1])/abs(pose[10][0]-pose[8][0]+1e-10)) < 1 \
+                     and abs((pose[6][1]-pose[8][1])/abs(pose[6][0]-pose[8][0]+1e-10)) < 2 \
+                         and self.judge2DfarBorderIn(pose[10], kpt_thr):
                 p = [int(pose[10][0]), int(pose[10][1])]
                 cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
                 print('warning6: out of border')
                 return vis_frame, True
-            elif Crookedhead == True  and self.judge2DfarBorderIn(json_file, pose[0]):
+            elif Crookedhead == True  and self.judge2DfarBorderIn(pose[0], kpt_thr):
                 p = [int(pose[0][0]), int(pose[0][1])]
                 cv2.circle(vis_frame, p, 5, (0, 0, 255), 8)
                 print('warning6: out of border')
                 return vis_frame, True
             return vis_frame, False
 
+        nose = pose[0]
+        # 伸头出界
+        if Crookedhead == True and self.judge2DborderIn(P=nose, score_threshold=kpt_thr, kx=self.kx) == False:
+            cv2.circle(vis_frame, [int(nose[0]), int(nose[1])], 5, (0, 0, 255), 8)
+            print('warning: out of border')
+            return vis_frame, True
+        
+
+        shoulder = (pose[5] + pose[6]) / 2
+        hip = (pose[11] + pose[12]) / 2
+        ankle = (pose[15] + pose[16]) / 2
+
+        ky = (hip[0] - shoulder[0])/(hip[1] - shoulder[1]) if shoulder[2]>ankle[2] else (hip[0] - ankle[0])/(hip[1] - ankle[1])
+        # ky = -self.kx
+
         # 水平交点
         if pose[15][1] < pose[16][1]:
-            crossPoints = self.getCrossPoints(json_file, kx=self.kx, P=pose[15], scale=scale)
+            crossPoints = self.getCrossPoints(kx=self.kx, P=pose[15])
         else:
-            crossPoints = self.getCrossPoints(json_file, kx=self.kx, P=pose[16], scale=scale)
+            crossPoints = self.getCrossPoints(kx=self.kx, P=pose[16])
         # 得到最近的两个水平交点
 
         # if len(crossPoints) != 0:
@@ -679,29 +534,48 @@ class Detector(object):
             else:
                 point1, point2 = self.getNearestCrossPoints(crossPoints, pose[16])
 
-            for point in crossPoints:
-                cv2.circle(vis_frame, point, 5, (255, 0, 0), 8)
-            parallelLineDistance = self.getDist_P2L_V2(
-                point1, 1/self.ky, point2)
+            # for point in crossPoints:
+            #     cv2.circle(vis_frame, point, 5, (255, 0, 0), 8)
+            cv2.circle(vis_frame, point1, 5, (255, 0, 0), 8)
+            cv2.circle(vis_frame, point2, 5, (255, 0, 0), 8)
+            
 
-            shoulder = (pose[5] + pose[6]) / 2
-            hip = (pose[11] + pose[12]) / 2
+            tolerable_eer_thr_head = math.sqrt((hip[1] - shoulder[1])**2+(hip[0] - shoulder[0])**2) *0.1
+            tolerable_eer_thr_pose = math.sqrt((hip[1] - shoulder[1])**2+(hip[0] - shoulder[0])**2) *0.3
+            tolerable_eer_thr = math.sqrt((hip[1] - shoulder[1])**2+(hip[0] - shoulder[0])**2) *0.2
 
-            tolerable_eer_thr_head = abs(hip[1] - shoulder[1]) *0.2
-            tolerable_eer_thr_pose = abs(hip[1] - shoulder[1]) *0.5
+            # pose[2:11, :], pose[0:2, :] = pose[0:9, :].copy(), pose[9:11, :].copy()
+            pose[3:11, :], pose[1:3, :] = pose[1:9, :].copy(), pose[9:11, :].copy()
 
-            pose[2:11, :], pose[0:2, :] = pose[0:9, :].copy(), pose[9:11, :].copy()
+            # 歪曲身体伸手出界
+            if Crookedhead == True and self.judge2DborderIn(P=nose, score_threshold=kpt_thr, kx=self.kx) == True:
+                for i in range(1,3):
+                    p = pose[i]
+                    distance1 = self.getDist_P2L_V2(p, -1/self.kx, point1)
+                    distance2 = self.getDist_P2L_V2(p, -1/self.kx, point2)
+                    parallelLineDistance = self.getDist_P2L_V2(point1, -1/self.kx, point2)
 
-            for i in range(17):
-                tolerable_eer_thr = tolerable_eer_thr_pose if i!=2 else tolerable_eer_thr_head
+                    if abs(distance1+distance2-parallelLineDistance)/2 >= tolerable_eer_thr:
+                        print(point1, point2, p)
+                        print(-self.kx, distance1, distance2, parallelLineDistance, abs(distance1+distance2-parallelLineDistance)/2, tolerable_eer_thr)
+                        print('warning: hand out of border')
+                        cv2.circle(vis_frame, [int(p[0]), int(
+                            p[1])], 10, (0, 0, 255), 8)
+                        return vis_frame, True
 
-                p = pose[i]
-                distance1 = self.getDist_P2L_V2(p, 1/self.ky, point1)
-                distance2 = self.getDist_P2L_V2(p, 1/self.ky, point2)
+            parallelLineDistance = self.getDist_P2L_V2(point1, 1/ky, point2)
+            # for i in range(17):
+            for i in range(1, 17):
                 
-                if abs(distance1+distance2-parallelLineDistance) > tolerable_eer_thr:
-                    print(abs(distance1+distance2-parallelLineDistance), tolerable_eer_thr)
+                p = pose[i]
+                distance1 = self.getDist_P2L_V2(p, 1/ky, point1)
+                distance2 = self.getDist_P2L_V2(p, 1/ky, point2)
+                
+                if abs(distance1+distance2-parallelLineDistance)/2 >= tolerable_eer_thr:
+                    print(abs(distance1+distance2-parallelLineDistance)/2, tolerable_eer_thr)
+                    # print((hip[1] - shoulder[1])/(hip[0] - shoulder[0]))
                     print('warning: out of border')
+                    print(pose)
                     cv2.circle(vis_frame, [int(p[0]), int(
                         p[1])], 10, (0, 0, 255), 8)
                     return vis_frame, True

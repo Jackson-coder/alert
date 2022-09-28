@@ -69,17 +69,9 @@ def detect(opt):
     if device.type != 'cpu':
         model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
     t0 = time.time()
-
-    CFG_INIT = True
-    JUDGE_INVADE = False
-
-    mode = JUDGE_INVADE
-
-    if mode == CFG_INIT:
-        detector = Detector()
-    else:
-        detector = Detector(kx=-0.07352941176470588, ky=0.04956268)
-        # detector = Detector(kx=-0.042328042328042326, ky=0.120428964)
+    
+    detector = Detector("E:\\alert\demo\demo1\demo_v2.json")
+    # detector = Detector("E:\\alert\demo\demo1.json")
 
     for path, img, im0s, vid_cap in dataset:
         img = torch.from_numpy(img).to(device)
@@ -117,20 +109,12 @@ def detect(opt):
                 scale_coords(img.shape[2:], det[:, :4], im0.shape, kpt_label=False)
                 scale_coords(img.shape[2:], det[:, 6:], im0.shape, kpt_label=kpt_label, step=3)
 
-                if mode == CFG_INIT:
-                    output = np.array([out.cpu().numpy() for out in det])
-                    for det_index in range(len(output)):
-                        kpts = output[det_index]
-                        detector.cfg_init("E:\\alert\demo\demo1.json", kpts, 0.3)
-                        # detector.cfg_init("E:\\alert\demo\demo1\demo_v2.json", kpts, 0.3)
-                        if detector.kx is not None and detector.ky is not None:
-                            return
-                if mode == JUDGE_INVADE:
-                    output = np.array([out.cpu().numpy() for out in det])
-                    for det_index in range(len(output)):
-                        kpts = output[det_index]
-                        im0, _ = detector.judge3DInvade(kpts, "E:\\alert\demo\demo1.json", 0.3, im0.copy(), mode='unnormal')
-                        # im0, _ = detector.judge3DInvade(kpts, "E:\\alert\demo\demo1\demo_v2.json", 0.3, im0.copy(), 45, mode='normal')
+                
+                output = np.array([out.cpu().numpy() for out in det])
+                for det_index in range(len(output)):
+                    kpts = output[det_index]
+                    # im0, _ = detector.judge3DInvade(kpts, 0.3, im0.copy(), mode='unnormal')
+                    im0, _ = detector.judge3DInvade(kpts, 0.3, im0.copy(), mode='normal') #0.85
 
                 # Print results
                 for c in det[:, 5].unique():
@@ -201,9 +185,9 @@ def detect(opt):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default='weights/yolov5l6_pose_832_mix-finetune.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='demo/demo', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--source', type=str, default='demo/demo1/demov2', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', nargs= '+', type=int, default=720, help='inference size (pixels)')
-    parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
+    parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view-img', action='store_true', help='display results')
