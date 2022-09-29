@@ -354,7 +354,7 @@ class Detector(object):
                 is_in = True
                 break
             if min(y1, y2) < py <= max(y1, y2):  # find horizontal edges of polygon
-                x = x1 + (py - y1) * (x2 - x1) / (y2 - y1)
+                x = x1 + (py - y1) * (x2 - x1) / (y2 - y1 + 1e-10)
                 if x == px:  # if point is on edge
                     is_in = True
                     break
@@ -517,7 +517,7 @@ class Detector(object):
         hip = (pose[11] + pose[12]) / 2
         ankle = (pose[15] + pose[16]) / 2
 
-        ky = (hip[0] - shoulder[0])/(hip[1] - shoulder[1]) if shoulder[2]>ankle[2] else (hip[0] - ankle[0])/(hip[1] - ankle[1])
+        ky = (hip[0] - shoulder[0])/(hip[1] - shoulder[1]+1e-10) if shoulder[2]>ankle[2] else (hip[0] - ankle[0])/(hip[1] - ankle[1]+1e-10)
         # ky = -self.kx
 
         # 水平交点
@@ -551,9 +551,9 @@ class Detector(object):
             if Crookedhead == True and self.judge2DborderIn(P=nose, score_threshold=kpt_thr, kx=self.kx) == True:
                 for i in range(1,3):
                     p = pose[i]
-                    distance1 = self.getDist_P2L_V2(p, -1/self.kx, point1)
-                    distance2 = self.getDist_P2L_V2(p, -1/self.kx, point2)
-                    parallelLineDistance = self.getDist_P2L_V2(point1, -1/self.kx, point2)
+                    distance1 = self.getDist_P2L_V2(p, -1/(self.kx+1e-10), point1)
+                    distance2 = self.getDist_P2L_V2(p, -1/(self.kx+1e-10), point2)
+                    parallelLineDistance = self.getDist_P2L_V2(point1, -1/(self.kx+1e-10), point2)
 
                     if abs(distance1+distance2-parallelLineDistance)/2 >= tolerable_eer_thr:
                         print(point1, point2, p)
@@ -563,13 +563,13 @@ class Detector(object):
                             p[1])], 10, (0, 0, 255), 8)
                         return vis_frame, True
 
-            parallelLineDistance = self.getDist_P2L_V2(point1, 1/ky, point2)
+            parallelLineDistance = self.getDist_P2L_V2(point1, 1/(ky+1e-10), point2)
             # for i in range(17):
             for i in range(1, 17):
                 
                 p = pose[i]
-                distance1 = self.getDist_P2L_V2(p, 1/ky, point1)
-                distance2 = self.getDist_P2L_V2(p, 1/ky, point2)
+                distance1 = self.getDist_P2L_V2(p, 1/(ky+1e-10), point1)
+                distance2 = self.getDist_P2L_V2(p, 1/(ky+1e-10), point2)
                 
                 if abs(distance1+distance2-parallelLineDistance)/2 >= tolerable_eer_thr:
                     print(abs(distance1+distance2-parallelLineDistance)/2, tolerable_eer_thr)
