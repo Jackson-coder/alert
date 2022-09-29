@@ -13,45 +13,56 @@ class Detector(object):
     '''
 
     def __init__(self, json_file, scale=1):
-        # self.__ky_buffer = []
-        # self.__hip_buffer = []
-        self.json_file = json_file
-        self.scale = scale          #scale: 原图相对于处理图的倍率,输入特征图相对于原始标注图像的缩放系数，>1为缩小
+        """
+            json_file: 图像分割结果文件
+            scale: 原图相对于处理图的倍率,输入特征图相对于原始标注图像的缩放系数，>1为缩小
+        """
+        with open(json_file, 'r', encoding='utf8')as fp:
+            json_data = json.load(fp)
+            self.step = json_data['step']
+            self.alert1 = json_data['left baffle']
+            self.alert2 = json_data['right baffle']
+            self.floor_plate = json_data["floor plate"]
+
+            for i in range(len(self.alert1)):
+                self.alert1[i] = [int(self.alert1[i][0]/scale), int(self.alert1[i][1]/scale)]
+
+            for i in range(len(self.alert2)):
+                self.alert2[i] = [int(self.alert2[i][0]/scale), int(self.alert2[i][1]/scale)]
+
+            for i in range(len(self.step)):
+                self.step[i] = [int(self.step[i][0]/scale), int(self.step[i][1]/scale)]
+
+            for i in range(len(self.floor_plate)):
+                self.floor_plate[i] = [int(self.floor_plate[i][0]/scale), int(self.floor_plate[i][1]/scale)]
+
         self.kx = self.getHorizonSlope()
 
     def getHorizonSlope(self):
-        with open(self.json_file, 'r', encoding='utf8')as fp:
-            json_data = json.load(fp)
-            # alert1 = json_data['shapes'][0]['points']
-            # alert2 = json_data['shapes'][1]['points']
+        """计算水平斜率
+        """
+        point1 = point2 = [0, 0]
 
-            step = json_data['step']
+        for point in self.step:
+            if point[1] > point1[1]:
+                point2 = point1
+                point1 = point
+            elif point[1] > point2[1]:
+                point2 = point
+        
+        kx = (point1[1]-point2[1])/(point1[0]-point2[0]+1e-10)
+        print('\n----------水平方向(角度)：',kx,'----------')
+        return kx
 
-            for i in range(len(step)):
-                step[i] = [int(step[i][0]/self.scale), int(step[i][1]/self.scale)]
 
-            point1 = point2 = [0, 0]
-
-            for point in step:
-                if point[1] > point1[1]:
-                    point2 = point1
-                    point1 = point
-                elif point[1] > point2[1]:
-                    point2 = point
+    # def getVerticalSlope(self, pose, kpt_thr):
+    #     if pose[15][2] > kpt_thr and pose[16][2] > kpt_thr and pose[11][2] > kpt_thr and pose[12][2] > kpt_thr:
+    #         ankle = (pose[15] + pose[16])/2
+    #         hip = (pose[11] + pose[12])/2
             
-            kx = (point1[1]-point2[1])/(point1[0]-point2[0]+1e-10)
-            print('\n----------水平方向(角度)：',kx,'----------')
-            return kx
-
-
-    def getVerticalSlope(self, pose, kpt_thr):
-        if pose[15][2] > kpt_thr and pose[16][2] > kpt_thr and pose[11][2] > kpt_thr and pose[12][2] > kpt_thr:
-            ankle = (pose[15] + pose[16])/2
-            hip = (pose[11] + pose[12])/2
-            
-            return (ankle[0]-hip[0])/(ankle[1]-hip[1]+1e-10)
-        else:
-            return
+    #         return (ankle[0]-hip[0])/(ankle[1]-hip[1]+1e-10)
+    #     else:
+    #         return
 
 
     def getLine(self, a, b):
@@ -130,37 +141,23 @@ class Detector(object):
                 Points:[levelpoint1, levelpoint2, levelpoint3,
                     levelpoint4, verticalpoint1, verticalpoint2]
         """
-        with open(self.json_file, 'r', encoding='utf8')as fp:
-            json_data = json.load(fp)
-            # alert1 = json_data['shapes'][0]['points']
-            # alert2 = json_data['shapes'][1]['points']
+        # 水平交点
+        Points = []
+        for i in range(len(self.alert1)):
+            flag = False
+            crossPoint, flag = self.judgeCross(
+                kx, P, self.alert1[i], self.alert1[(i+1) % len(self.alert1)])
+            if flag:
+                Points.append(crossPoint)
 
-            alert1 = json_data['left baffle']
-            alert2 = json_data['right baffle']
+        for i in range(len(self.alert2)):
+            flag = False
+            crossPoint, flag = self.judgeCross(
+                kx, P, self.alert2[i], self.alert2[(i+1) % len(self.alert2)])
+            if flag:
+                Points.append(crossPoint)
 
-            for i in range(len(alert1)):
-                alert1[i] = [int(alert1[i][0]/self.scale), int(alert1[i][1]/self.scale)]
-
-            for i in range(len(alert2)):
-                alert2[i] = [int(alert2[i][0]/self.scale), int(alert2[i][1]/self.scale)]
-
-            # 水平交点
-            Points = []
-            for i in range(len(alert1)):
-                flag = False
-                crossPoint, flag = self.judgeCross(
-                    kx, P, alert1[i], alert1[(i+1) % len(alert1)])
-                if flag:
-                    Points.append(crossPoint)
-
-            for i in range(len(alert2)):
-                flag = False
-                crossPoint, flag = self.judgeCross(
-                    kx, P, alert2[i], alert2[(i+1) % len(alert2)])
-                if flag:
-                    Points.append(crossPoint)
-
-            Points.sort()
+        Points.sort()
 
         return Points
 
@@ -216,40 +213,32 @@ class Detector(object):
             return:
                 True or False
         """
-        with open(self.json_file, 'r', encoding='utf8')as fp:
-            json_data = json.load(fp)
+        left_point1 = [0,0]
+        left_point2 = [0,0]
+        for i in range(len(self.alert1)):
+            if self.alert1[i][0]>left_point1[0]:
+                left_point2 = left_point1
+                left_point1 = self.alert1[i]
+                
+            elif self.alert1[i][0]>left_point2[0]:
+                left_point2 = self.alert1[i]
 
-            alert1 = json_data['left baffle']
-            alert2 = json_data['right baffle']
-
-            left_point1 = [0,0]
-            left_point2 = [0,0]
-            for i in range(len(alert1)):
-                alert1[i] = [int(alert1[i][0]/self.scale), int(alert1[i][1]/self.scale)]
-                if alert1[i][0]>left_point1[0]:
-                    left_point2 = left_point1
-                    left_point1 = alert1[i]
-                    
-                elif alert1[i][0]>left_point2[0]:
-                    left_point2 = alert1[i]
-
-            right_point1 = [10000,10000]
-            right_point2 = [10000,10000]
-            for i in range(len(alert2)):
-                alert2[i] = [int(alert2[i][0]/self.scale), int(alert2[i][1]/self.scale)]
-                if alert2[i][0]<right_point1[0]:
-                    right_point2 = right_point1
-                    right_point1 = alert2[i]
-                    
-                elif alert2[i][0]<right_point2[0]:
-                    right_point2 = alert2[i]
+        right_point1 = [10000,10000]
+        right_point2 = [10000,10000]
+        for i in range(len(self.alert2)):
+            if self.alert2[i][0]<right_point1[0]:
+                right_point2 = right_point1
+                right_point1 = self.alert2[i]
+                
+            elif self.alert2[i][0]<right_point2[0]:
+                right_point2 = self.alert2[i]
 
 
-            # 判断线段与直线相交
-            if pose[0]-left_point1[0] < 0 or pose[0] - right_point1[0] > 0:
-                return True
-            else:
-                return False
+        # 判断线段与直线相交
+        if pose[0]-left_point1[0] < 0 or pose[0] - right_point1[0] > 0:
+            return True
+        else:
+            return False
 
 
 
@@ -266,7 +255,6 @@ class Detector(object):
         backward_count = 0
         a = 1
         for i in range(1, 8):
-            # print(Points[a], ' ', Points[a+1])
             if Points[a][2] > score_threshold and \
                 Points[a+1][2] > score_threshold and \
                     Points[a][0] - Points[a+1][0] > 0:
@@ -292,46 +280,36 @@ class Detector(object):
         """
         if mode=='normal':
             return True
-        with open(self.json_file, 'r', encoding='utf8')as fp:
-            json_data = json.load(fp)
+        points = np.array([self.step], dtype=np.int32)
+        rect = cv2.minAreaRect(points)
+        box = cv2.boxPoints(rect)
+        vetuex1 = [10000,10000]
+        vetuex2 = [10000,10000]
+        for vetuex in box:
+            if vetuex[1]<vetuex1[1]:
+                vetuex2 = vetuex1
+                vetuex1 = vetuex
+                
+            elif vetuex[1]<vetuex2[1]:
+                vetuex2 = vetuex
+        
+        min_y1 = 1000
+        min_y2 = 1000
 
-            step = json_data['step']
+        for i in range(len(self.step)):
+            if abs((self.step[i][0]-vetuex1[0])/(self.step[i][1]-vetuex1[1]+1e-10))<1 and self.step[i][1]<min_y1:
+                min_y1 = self.step[i][1]
+                point1 = self.step[i]
+            if abs((self.step[i][0]-vetuex2[0])/(self.step[i][1]-vetuex2[1]+1e-10))<1 and self.step[i][1]<min_y2:
+                min_y2 = self.step[i][1]
+                point2 = self.step[i]
+        distance = self.getDist_P2L_V1(pose_point, point1, point2)
 
-            for i in range(len(step)):
-                step[i] = [int(step[i][0]/self.scale), int(step[i][1]/self.scale)]
-            points = np.array([step], dtype=np.int32)
-            rect = cv2.minAreaRect(points)
-            box = cv2.boxPoints(rect)
-            vetuex1 = [10000,10000]
-            vetuex2 = [10000,10000]
-            for vetuex in box:
-                if vetuex[1]<vetuex1[1]:
-                    vetuex2 = vetuex1
-                    vetuex1 = vetuex
-                    
-                elif vetuex[1]<vetuex2[1]:
-                    vetuex2 = vetuex
-
-            print(vetuex1, vetuex2)
-            
-            
-            min_y1 = 1000
-            min_y2 = 1000
-
-            for i in range(len(step)):
-                if abs((step[i][0]-vetuex1[0])/(step[i][1]-vetuex1[1]+1e-10))<1 and step[i][1]<min_y1:
-                    min_y1 = step[i][1]
-                    point1 = step[i]
-                if abs((step[i][0]-vetuex2[0])/(step[i][1]-vetuex2[1]+1e-10))<1 and step[i][1]<min_y2:
-                    min_y2 = step[i][1]
-                    point2 = step[i]
-            distance = self.getDist_P2L_V1(pose_point, point1, point2)
-
-            print(distance)
-            if distance > 0:
-                return False
-            else:
-                return True
+        print(distance)
+        if distance > 0:
+            return False
+        else:
+            return True
             
     def is_in_poly(self, p, poly):
         """
@@ -358,17 +336,19 @@ class Detector(object):
         return is_in
 
     def need_judge(self, pose_results, kpt_thr):
-        with open(self.json_file, 'r', encoding='utf8')as fp:
-            json_data = json.load(fp)
-            step = json_data['step']
-            floor_plate = json_data["floor plate"]
+        """判断是否是待识别对象
+            pose_results：17个人体姿态点
+            kpt_thr：姿态点置信阈值
 
-            if self.is_in_poly(pose_results[15], floor_plate) or self.is_in_poly(pose_results[16], floor_plate):
-                return False
-            elif self.is_in_poly(pose_results[15], step) or self.is_in_poly(pose_results[16], step):
-                return True
-            else:
-                return False
+            return:
+                flag: 是否是待识别对象
+        """
+        if self.is_in_poly(pose_results[15], self.floor_plate) or self.is_in_poly(pose_results[16], self.floor_plate):
+            return False
+        elif self.is_in_poly(pose_results[15], self.step) or self.is_in_poly(pose_results[16], self.step):
+            return True
+        else:
+            return False
 
     def judge3DInvade(self, output, kpt_thr, vis_frame=None, mode='normal'):
         '''判断是否发生3D入侵
@@ -384,10 +364,6 @@ class Detector(object):
         '''
 
         assert self.kx!=None
-
-        # pose_results = output[:, 6:]
-        # pose_results = np.reshape(pose_results,(-1, 17, 3))
-        # pose_scores = output[:, 4]
 
         pose = output[6:]
         pose = np.reshape(pose,(17, 3))
@@ -523,9 +499,8 @@ class Detector(object):
             crossPoints = self.getCrossPoints(kx=self.kx, P=pose[15])
         else:
             crossPoints = self.getCrossPoints(kx=self.kx, P=pose[16])
-        # 得到最近的两个水平交点
 
-        # if len(crossPoints) != 0:
+        # 得到最近的两个水平交点
         if len(crossPoints) > 3:
             if pose[15][1] < pose[16][1]:
                 point1, point2 = self.getNearestCrossPoints(crossPoints, pose[15])
@@ -579,13 +554,4 @@ class Detector(object):
 
 
 if __name__ == "__main__":
-    detector = Detector()
-    # print(detector.getHorizonSlope("E:\\alert\demo2\seg_result.json"))
-    # pose_result = np.array([[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5],[1,2,0.5]])
-    # ky = detector.getVerticalSlope(pose_result, 0.3)
-    json_file = "E:\\alert\demo\demo1.json"
-    # output = [5,6,5,7,1,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5,1,2,0.5]
-    # kpt_thr = 0.3
-    # detector.cfg_init(json_file, output, kpt_thr)
-    pose_point = [557, 439]
-    detector.regionJudge(json_file, pose_point, 'unnormal')
+    pass
