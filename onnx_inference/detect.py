@@ -7,8 +7,8 @@ class Detector(object):
     '''Tutorial
 
     detector = Detector(conf_file)
-    outputFrame, invade_flag = detector.judge3DInvade(kpts, kpt_score, im0, mode='normal')  #debug
-    outputFrame, invade_flag = detector.judge3DInvade(kpts, kpt_score，mode='normal')  #release
+    invade_flag = detector.judge3DInvade(kpts, kpt_score, im0, mode='normal')  #debug
+    invade_flag = detector.judge3DInvade(kpts, kpt_score，mode='normal')  #release
 
     '''
 

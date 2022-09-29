@@ -113,8 +113,8 @@ def detect(opt):
                 output = np.array([out.cpu().numpy() for out in det])
                 for det_index in range(len(output)):
                     kpts = output[det_index]
-                    # im0, _ = detector.judge3DInvade(kpts, 0.3, im0.copy(), mode='unnormal')
-                    im0, _ = detector.judge3DInvade(kpts, 0.3, im0.copy(), mode='normal') #0.85
+                    # flag = detector.judge3DInvade(kpts, 0.3, im0.copy(), mode='unnormal')
+                    flag = detector.judge3DInvade(kpts, 0.3, im0, mode='normal') #0.85
 
                 # Print results
                 for c in det[:, 5].unique():
