@@ -203,7 +203,7 @@ class Detector(object):
             else:
                 return False
         else:
-            return False
+            return True
 
     def judge2DfarBorderIn(self, pose, score_threshold=0.3):
         """判断远处的点是否在二维区域内部
@@ -515,6 +515,7 @@ class Detector(object):
             tolerable_eer_thr_head = math.sqrt((hip[1] - shoulder[1])**2+(hip[0] - shoulder[0])**2) *0.1
             tolerable_eer_thr_pose = math.sqrt((hip[1] - shoulder[1])**2+(hip[0] - shoulder[0])**2) *0.3
             tolerable_eer_thr = math.sqrt((hip[1] - shoulder[1])**2+(hip[0] - shoulder[0])**2) *0.2
+            # tolerable_eer_thr = abs(point1[0]-point2[0])*0.125 
 
             # pose[2:11, :], pose[0:2, :] = pose[0:9, :].copy(), pose[9:11, :].copy()
             pose[3:11, :], pose[1:3, :] = pose[1:9, :].copy(), pose[9:11, :].copy()
@@ -534,6 +535,8 @@ class Detector(object):
                             print('warning: hand out of border')
                             cv2.circle(vis_frame, (int(p[0]), int(p[1])), 10, (0, 0, 255), 8)
                         return True
+                ky = -self.kx
+                tolerable_eer_thr = abs(point1[0]-point2[0])*0.125 
 
             parallelLineDistance = self.getDist_P2L_V2(point1, 1/(ky+1e-10), point2)
             for i in range(1, 17):
@@ -543,6 +546,7 @@ class Detector(object):
                 
                 if abs(distance1+distance2-parallelLineDistance)/2 >= tolerable_eer_thr:
                     if vis_frame is not None:
+                        print(abs((pose[0][0]-hip[0])/(pose[0][1]-hip[1]+1e-10)))
                         print(abs(distance1+distance2-parallelLineDistance)/2, tolerable_eer_thr)
                         print('warning: out of border')
                         print(pose)
