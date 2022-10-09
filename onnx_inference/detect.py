@@ -521,7 +521,9 @@ class Detector(object):
             pose[3:11, :], pose[1:3, :] = pose[1:9, :].copy(), pose[9:11, :].copy()
 
             # 歪曲身体伸手出界
-            if Crookedhead == True and self.judge2DborderIn(P=nose, score_threshold=kpt_thr, kx=self.kx) == True:
+            if (abs((pose[1][1]-pose[9][1])/abs(pose[1][0]-pose[9][0]+1e-10)) < 1 and abs((pose[1][1]-pose[9][1])/abs(pose[1][0]-pose[9][0]+1e-10)) < 2) or \
+                (abs((pose[2][1]-pose[10][1])/abs(pose[2][0]-pose[10][0]+1e-10)) < 1 and abs((pose[2][1]-pose[10][1])/abs(pose[2][0]-pose[10][0]+1e-10)) < 2):
+            # if Crookedhead == True and self.judge2DborderIn(P=nose, score_threshold=kpt_thr, kx=self.kx) == True:
                 for i in range(1,3):
                     p = pose[i]
                     distance1 = self.getDist_P2L_V2(p, -1/(self.kx+1e-10), point1)
