@@ -23,6 +23,7 @@ class Detector(object):
             self.alert1 = json_data['left baffle']
             self.alert2 = json_data['right baffle']
             self.floor_plate = json_data["floor plate"]
+            self.larger_floor = json_data["larger_floor"]
 
             for i in range(len(self.alert1)):
                 self.alert1[i] = [int(self.alert1[i][0]/scale), int(self.alert1[i][1]/scale)]
@@ -35,6 +36,9 @@ class Detector(object):
 
             for i in range(len(self.floor_plate)):
                 self.floor_plate[i] = [int(self.floor_plate[i][0]/scale), int(self.floor_plate[i][1]/scale)]
+
+            for i in range(len(self.larger_floor)):
+                self.larger_floor[i] = [int(self.larger_floor[i][0]/scale), int(self.larger_floor[i][1]/scale)]
 
         self.kx = self.getHorizonSlope()
 
@@ -343,7 +347,7 @@ class Detector(object):
             return:
                 flag: 是否是待识别对象
         """
-        if self.is_in_poly(pose_results[15], self.floor_plate) or self.is_in_poly(pose_results[16], self.floor_plate):
+        if self.is_in_poly(pose_results[15], self.larger_floor) or self.is_in_poly(pose_results[16], self.larger_floor):
             return False
         elif self.is_in_poly(pose_results[15], self.step) or self.is_in_poly(pose_results[16], self.step):
             return True
@@ -387,6 +391,7 @@ class Detector(object):
 
         if self.need_judge(pose, kpt_thr) == False:
             return False
+
 
         # 踢腿出界
         if self.judge2DborderIn(P=pose[15], score_threshold=kpt_thr, kx=self.kx) == False:
@@ -490,8 +495,18 @@ class Detector(object):
         shoulder = (pose[5] + pose[6]) / 2
         hip = (pose[11] + pose[12]) / 2
         ankle = (pose[15] + pose[16]) / 2
+        knee = (pose[13]+pose[14]) / 2
 
         ky = (hip[0] - shoulder[0])/(hip[1] - shoulder[1]+1e-10) if shoulder[2]>ankle[2] else (hip[0] - ankle[0])/(hip[1] - ankle[1]+1e-10)
+
+        nose_to_hip = np.array((nose[0]-hip[0], nose[1]-hip[1]))
+        l_nose_to_hip=np.sqrt(nose_to_hip.dot(nose_to_hip))
+        knee_to_hip = np.array((knee[0]-hip[0], knee[1]-hip[1]))
+        l_knee_to_hip=np.sqrt(knee_to_hip.dot(knee_to_hip))
+        cos_theta = nose_to_hip.dot(knee_to_hip)/(l_nose_to_hip*l_knee_to_hip)
+        if hip[1] < nose[1] or cos_theta>math.cos(math.pi*5/6):
+            ky = -self.kx
+
         # ky = -self.kx
 
         # 水平交点
@@ -506,6 +521,18 @@ class Detector(object):
                 point1, point2 = self.getNearestCrossPoints(crossPoints, pose[15])
             else:
                 point1, point2 = self.getNearestCrossPoints(crossPoints, pose[16])
+            
+            left_hip_knee = abs((pose[11][1]-pose[13][1])/(pose[11][0]-pose[13][0]))
+            right_hip_knee = abs((pose[12][1]-pose[14][1])/(pose[12][0]-pose[14][0]))
+
+            if left_hip_knee<2 and right_hip_knee<2:
+                point1, point2 = self.getNearestCrossPoints(crossPoints, pose[16]) \
+                    if left_hip_knee < right_hip_knee else self.getNearestCrossPoints(crossPoints, pose[15])
+            elif left_hip_knee<2:
+                point1, point2 = self.getNearestCrossPoints(crossPoints, pose[16])
+            elif right_hip_knee<2:
+                point1, point2 = self.getNearestCrossPoints(crossPoints, pose[15])
+
 
             if vis_frame is not None:
                 cv2.circle(vis_frame, tuple(point1), 5, (255, 0, 0), 8)
