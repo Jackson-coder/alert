@@ -449,12 +449,32 @@ class Detector(object):
                             cv2.circle(vis_frame, (int(pose[9][0]), int(pose[9][1])), 5, (0, 0, 255), 8)
                             print('warning3: out of border')
                         return True
-                elif self.judge2DborderIn(P=pose[10], score_threshold=kpt_thr, kx=self.kx) == False:
+                if self.judge2DborderIn(P=pose[10], score_threshold=kpt_thr, kx=self.kx) == False:
                     if abs((pose[10][1]-pose[8][1])/abs(pose[10][0]-pose[8][0]+1e-10)) < 1 and abs((pose[6][1]-pose[8][1])/abs(pose[6][0]-pose[8][0]+1e-10)) < 2:
                         if vis_frame is not None:
                             cv2.circle(vis_frame, (int(pose[10][0]), int(pose[10][1])), 5, (0, 0, 255), 8)
                             print('warning4: out of border')
                         return True
+                # if self.judge2DborderIn(P=pose[9], score_threshold=kpt_thr, kx=self.kx) == False:
+                #     if vis_frame is not None:
+                #         cv2.circle(vis_frame, (int(pose[9][0]), int(pose[9][1])), 5, (0, 0, 255), 8)
+                #         print('warning7: out of border')
+                #     return True
+                # elif self.judge2DborderIn(P=pose[10], score_threshold=kpt_thr, kx=self.kx) == False:
+                #     if vis_frame is not None:
+                #         cv2.circle(vis_frame, (int(pose[10][0]), int(pose[10][1])), 5, (0, 0, 255), 8)
+                #         print('warning8: out of border')
+                #     return True
+                if self.judge2DborderIn(P=pose[7], score_threshold=kpt_thr, kx=self.kx) == False:
+                    if vis_frame is not None:
+                        cv2.circle(vis_frame, (int(pose[7][0]), int(pose[7][1])), 5, (0, 0, 255), 8)
+                        print('warning8: out of border')
+                    return True
+                if self.judge2DborderIn(P=pose[8], score_threshold=kpt_thr, kx=self.kx) == False:
+                    if vis_frame is not None:
+                        cv2.circle(vis_frame, (int(pose[8][0]), int(pose[8][1])), 5, (0, 0, 255), 8)
+                        print('warning8: out of border')
+                    return True
             return False
 
         # 完整姿态
@@ -511,9 +531,9 @@ class Detector(object):
 
         # 水平交点
         if pose[15][1] < pose[16][1]:
-            crossPoints = self.getCrossPoints(kx=self.kx, P=pose[15])
-        else:
             crossPoints = self.getCrossPoints(kx=self.kx, P=pose[16])
+        else:
+            crossPoints = self.getCrossPoints(kx=self.kx, P=pose[15])
 
         # 得到最近的两个水平交点
         if len(crossPoints) > 3:
@@ -522,16 +542,17 @@ class Detector(object):
             else:
                 point1, point2 = self.getNearestCrossPoints(crossPoints, pose[16])
             
-            left_hip_knee = abs((pose[11][1]-pose[13][1])/(pose[11][0]-pose[13][0]))
-            right_hip_knee = abs((pose[12][1]-pose[14][1])/(pose[12][0]-pose[14][0]))
+            # shoulder_2_hip = abs(shoulder[1]-hip[1])
+            # left_hip_knee = abs(pose[11][0]-pose[13][0]) > shoulder_2_hip/3
+            # right_hip_knee = abs(pose[12][0]-pose[14][0]) > shoulder_2_hip/3
 
-            if left_hip_knee<2 and right_hip_knee<2:
-                point1, point2 = self.getNearestCrossPoints(crossPoints, pose[16]) \
-                    if left_hip_knee < right_hip_knee else self.getNearestCrossPoints(crossPoints, pose[15])
-            elif left_hip_knee<2:
-                point1, point2 = self.getNearestCrossPoints(crossPoints, pose[16])
-            elif right_hip_knee<2:
-                point1, point2 = self.getNearestCrossPoints(crossPoints, pose[15])
+            
+            # if left_hip_knee:
+            #     point1, point2 = self.getNearestCrossPoints(crossPoints, pose[16])
+            #     print("left_hip_knee")
+            # elif right_hip_knee:
+            #     point1, point2 = self.getNearestCrossPoints(crossPoints, pose[15])
+            #     print("right_hip_knee")
 
 
             if vis_frame is not None:
