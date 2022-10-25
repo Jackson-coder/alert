@@ -24,6 +24,8 @@ class Detector(object):
             self.alert2 = json_data['right baffle']
             self.floor_plate = json_data["floor plate"]
             self.larger_floor = json_data["larger_floor"]
+            self.width = json_data["imgWidth"]
+            self.height = json_data["imgHeight"]
 
             for i in range(len(self.alert1)):
                 self.alert1[i] = [int(self.alert1[i][0]/scale), int(self.alert1[i][1]/scale)]
@@ -165,7 +167,7 @@ class Detector(object):
 
         return Points
 
-    def getNearestCrossPoints(self, points, P):
+    def getNearestCrossPoints(self, points, P, position='middle_or_right'):
         """寻找交点
             points: 水平交点
             P：定点坐标
@@ -181,13 +183,19 @@ class Detector(object):
 
         point1 = point2 = [0, 0]
 
-        for point in points:
-                max_c, point1 = (point[0]-P[0], point) if point[0]-P[0] < 0 and point[0]-P[0] > max_c else (max_c, point1)
-                min_c, point2 = (point[0]-P[0], point) if point[0]-P[0] > 0 and point[0]-P[0] < min_c else (min_c, point2)
-        return point1, point2
+        if position=='middle_or_right':
+            for point in points:
+                    max_c, point1 = (point[0]-P[0], point) if point[0]-P[0] < 0 and point[0]-P[0] > max_c else (max_c, point1)
+                    min_c, point2 = (point[0]-P[0], point) if point[0]-P[0] > 0 and point[0]-P[0] < min_c else (min_c, point2)
+            return point1, point2
+        else:
+            for point in points:
+                    max_c, point1 = (point[0]-P[0], point) if point[0]-P[0] > 0 and point[0]-P[0] > max_c else (max_c, point1)
+                    min_c, point2 = (point[0]-P[0], point) if point[0]-P[0] > 0 and point[0]-P[0] < min_c else (min_c, point2)
+            return point1, point2
 
 
-    def judge2DborderIn(self, kx=0, P=[960, 540, 1], score_threshold=0.3):
+    def judge2DborderIn(self, kx=0, P=[960, 540, 1], score_threshold=0.3, error_thr=0):
         """判断点是否在二维区域内部
             P：目标点
             kx：水平线斜率
@@ -197,12 +205,20 @@ class Detector(object):
                 True or False
         """
         Points = self.getCrossPoints(kx, P)
+        delta = 0
+        if len(Points):       
+            if P[0] >= Points[0][0]:   # point is in the right or in the middle
+                point1, point2 = self.getNearestCrossPoints(Points, P)
+                delta = error_thr * abs(point1[0]-point2[0])
+            else:
+                point1, point2 = self.getNearestCrossPoints(Points, P, 'left') # point is in the left
+                delta = error_thr * abs(point1[0]-point2[0])
 
         if P[2] < score_threshold:
             return True
 
         if len(Points) != 0:
-            if P[0] > Points[0][0] and P[0] < Points[-1][0]:
+            if P[0] > Points[0][0] - delta and P[0] < Points[-1][0]  + delta:
                 return True
             else:
                 return False
@@ -352,12 +368,22 @@ class Detector(object):
         elif self.is_in_poly(pose_results[15], self.step) or self.is_in_poly(pose_results[16], self.step):
             return True
         else:
+            points1 = self.getCrossPoints(self.kx, pose_results[11])
+            if len(points1)>1 and (points1[0][0]-pose_results[11][0])*(points1[-1][0]-pose_results[11][0]) < 0:
+                return True
+            points2 = self.getCrossPoints(self.kx, pose_results[12])
+            if len(points2)>1 and (points2[0][0]-pose_results[12][0])*(points2[-1][0]-pose_results[12][0]) < 0:
+                return True
             return False
 
-    def judge3DInvade(self, output, kpt_thr, vis_frame=None, mode='normal'):
+    def judge3DInvade(self, output, kpt_thr, vis_frame=None, error_thr=0.15, mode='normal'):
         '''判断是否发生3D入侵
 
+            output: 网络前向输出
+
             kpt_thr: 姿态点置信阈值
+
+            error_thr: 容错阈值
 
             vis_frame: 输入视频,默认是release版本
 
@@ -413,9 +439,6 @@ class Detector(object):
             hip = (pose[11] + pose[12])/2
             if abs((pose[0][0]-hip[0])/(pose[0][1]-hip[1]+1e-10)) > 0.5:
                 Crookedhead = True
-            else:
-                Crookedhead = False
-
 
         # 不是完整姿态
         if flag is False:
@@ -434,22 +457,22 @@ class Detector(object):
                     print('warning1: out of border')
                 return True
             # 内外都有，手在内部，头部歪曲
-            elif self.judge2DborderIn(P=pose[9], score_threshold=kpt_thr, kx=self.kx) == True and \
-                self.judge2DborderIn(P=pose[10], score_threshold=kpt_thr, kx=self.kx) == True and \
-                    Crookedhead is True and out_border != 0 and in_border != 0:
+            elif self.judge2DborderIn(P=pose[9], score_threshold=kpt_thr, kx=self.kx, error_thr=error_thr) == True and \
+                self.judge2DborderIn(P=pose[10], score_threshold=kpt_thr, kx=self.kx, error_thr=error_thr) == True and \
+                    Crookedhead is True and out_border != 0:
                 if vis_frame is not None:
-                    cv2.circle(vis_frame, (int(pose[0][0]), int(pose[0][1])), 5, (0, 0, 255), 8)
+                    cv2.circle(vis_frame, (int(pose[0][0]), int(pose[0][1])), 10, (0, 0, 255), 8)
                     print('warning2: out of border')
                 return True
             # 内外都有，手部伸展
             elif out_border != 0 and in_border != 0:
-                if self.judge2DborderIn(P=pose[9], score_threshold=kpt_thr, kx=self.kx) == False:
+                if self.judge2DborderIn(P=pose[9], score_threshold=kpt_thr, kx=self.kx, error_thr=error_thr) == False:
                     if abs((pose[9][1]-pose[7][1])/abs(pose[9][0]-pose[7][0]+1e-10)) < 1 and abs((pose[5][1]-pose[7][1])/abs(pose[5][0]-pose[7][0]+1e-10)) < 2:
                         if vis_frame is not None:
                             cv2.circle(vis_frame, (int(pose[9][0]), int(pose[9][1])), 5, (0, 0, 255), 8)
                             print('warning3: out of border')
                         return True
-                if self.judge2DborderIn(P=pose[10], score_threshold=kpt_thr, kx=self.kx) == False:
+                if self.judge2DborderIn(P=pose[10], score_threshold=kpt_thr, kx=self.kx, error_thr=error_thr) == False:
                     if abs((pose[10][1]-pose[8][1])/abs(pose[10][0]-pose[8][0]+1e-10)) < 1 and abs((pose[6][1]-pose[8][1])/abs(pose[6][0]-pose[8][0]+1e-10)) < 2:
                         if vis_frame is not None:
                             cv2.circle(vis_frame, (int(pose[10][0]), int(pose[10][1])), 5, (0, 0, 255), 8)
@@ -465,12 +488,12 @@ class Detector(object):
                 #         cv2.circle(vis_frame, (int(pose[10][0]), int(pose[10][1])), 5, (0, 0, 255), 8)
                 #         print('warning8: out of border')
                 #     return True
-                if self.judge2DborderIn(P=pose[7], score_threshold=kpt_thr, kx=self.kx) == False:
+                if self.judge2DborderIn(P=pose[7], score_threshold=kpt_thr, kx=self.kx, error_thr=error_thr) == False:
                     if vis_frame is not None:
                         cv2.circle(vis_frame, (int(pose[7][0]), int(pose[7][1])), 5, (0, 0, 255), 8)
                         print('warning8: out of border')
                     return True
-                if self.judge2DborderIn(P=pose[8], score_threshold=kpt_thr, kx=self.kx) == False:
+                if self.judge2DborderIn(P=pose[8], score_threshold=kpt_thr, kx=self.kx, error_thr=error_thr) == False:
                     if vis_frame is not None:
                         cv2.circle(vis_frame, (int(pose[8][0]), int(pose[8][1])), 5, (0, 0, 255), 8)
                         print('warning8: out of border')
@@ -505,7 +528,7 @@ class Detector(object):
 
         nose = pose[0]
         # 伸头出界
-        if Crookedhead == True and self.judge2DborderIn(P=nose, score_threshold=kpt_thr, kx=self.kx) == False:
+        if Crookedhead == True and self.judge2DborderIn(P=nose, score_threshold=kpt_thr, kx=self.kx, error_thr=error_thr) == False:
             if vis_frame is not None:
                 cv2.circle(vis_frame, (int(nose[0]), int(nose[1])), 5, (0, 0, 255), 8)
                 print('warning: out of border')
@@ -538,9 +561,9 @@ class Detector(object):
         # 得到最近的两个水平交点
         if len(crossPoints) > 3:
             if pose[15][1] < pose[16][1]:
-                point1, point2 = self.getNearestCrossPoints(crossPoints, pose[15])
-            else:
                 point1, point2 = self.getNearestCrossPoints(crossPoints, pose[16])
+            else:
+                point1, point2 = self.getNearestCrossPoints(crossPoints, pose[15])
             
             # shoulder_2_hip = abs(shoulder[1]-hip[1])
             # left_hip_knee = abs(pose[11][0]-pose[13][0]) > shoulder_2_hip/3
@@ -559,11 +582,9 @@ class Detector(object):
                 cv2.circle(vis_frame, tuple(point1), 5, (255, 0, 0), 8)
                 cv2.circle(vis_frame, tuple(point2), 5, (255, 0, 0), 8)
             
+            # tolerable_eer_thr = math.sqrt((hip[1] - shoulder[1])**2+(hip[0] - shoulder[0])**2) *0.2
+            tolerable_eer_thr = abs(point1[0] - point2[0])*error_thr
 
-            tolerable_eer_thr_head = math.sqrt((hip[1] - shoulder[1])**2+(hip[0] - shoulder[0])**2) *0.1
-            tolerable_eer_thr_pose = math.sqrt((hip[1] - shoulder[1])**2+(hip[0] - shoulder[0])**2) *0.3
-            tolerable_eer_thr = math.sqrt((hip[1] - shoulder[1])**2+(hip[0] - shoulder[0])**2) *0.2
-            # tolerable_eer_thr = abs(point1[0]-point2[0])*0.125 
 
             # pose[2:11, :], pose[0:2, :] = pose[0:9, :].copy(), pose[9:11, :].copy()
             pose[3:11, :], pose[1:3, :] = pose[1:9, :].copy(), pose[9:11, :].copy()
@@ -586,7 +607,8 @@ class Detector(object):
                             cv2.circle(vis_frame, (int(p[0]), int(p[1])), 10, (0, 0, 255), 8)
                         return True
                 ky = -self.kx
-                tolerable_eer_thr = abs(point1[0]-point2[0])*0.125 
+                # tolerable_eer_thr = abs(point1[0]-point2[0])*0.125 
+                # tolerable_eer_thr = tolerable_eer_thr
 
             parallelLineDistance = self.getDist_P2L_V2(point1, 1/(ky+1e-10), point2)
             for i in range(1, 17):
