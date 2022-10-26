@@ -167,7 +167,7 @@ class Detector(object):
 
         return Points
 
-    def getNearestCrossPoints(self, points, P, position='middle_or_right'):
+    def getNearestCrossPoints(self, points, P, position='middle'):
         """寻找交点
             points: 水平交点
             P：定点坐标
@@ -183,10 +183,15 @@ class Detector(object):
 
         point1 = point2 = [0, 0]
 
-        if position=='middle_or_right':
+        if position=='middle':
             for point in points:
                     max_c, point1 = (point[0]-P[0], point) if point[0]-P[0] < 0 and point[0]-P[0] > max_c else (max_c, point1)
                     min_c, point2 = (point[0]-P[0], point) if point[0]-P[0] > 0 and point[0]-P[0] < min_c else (min_c, point2)
+            return point1, point2
+        elif position=='right':
+            for point in points:
+                    max_c, point1 = (point[0]-P[0], point) if point[0]-P[0] < 0 and point[0]-P[0] > max_c else (max_c, point1)
+                    min_c, point2 = (point[0]-P[0], point) if point[0]-P[0] < 0 and point[0]-P[0] < min_c else (min_c, point2)
             return point1, point2
         else:
             for point in points:
@@ -207,8 +212,11 @@ class Detector(object):
         Points = self.getCrossPoints(kx, P)
         delta = 0
         if len(Points):       
-            if P[0] >= Points[0][0]:   # point is in the right or in the middle
-                point1, point2 = self.getNearestCrossPoints(Points, P)
+            if P[0] >= Points[0][0] and P[0] <= Points[-1][0]:   # point is in the middle
+                point1, point2 = self.getNearestCrossPoints(Points, P, 'middle')
+                delta = error_thr * abs(point1[0]-point2[0])
+            elif P[0] > Points[-1][0]: 
+                point1, point2 = self.getNearestCrossPoints(Points, P, 'right')
                 delta = error_thr * abs(point1[0]-point2[0])
             else:
                 point1, point2 = self.getNearestCrossPoints(Points, P, 'left') # point is in the left
