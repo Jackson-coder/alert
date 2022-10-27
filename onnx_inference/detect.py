@@ -164,6 +164,7 @@ class Detector(object):
                 Points.append(crossPoint)
 
         Points.sort()
+        print(Points)
 
         return Points
 
@@ -211,21 +212,24 @@ class Detector(object):
         """
         Points = self.getCrossPoints(kx, P)
         delta = 0
-        if len(Points):       
+        if len(Points)>3:       
             if P[0] >= Points[0][0] and P[0] <= Points[-1][0]:   # point is in the middle
+                # print('middle')
                 point1, point2 = self.getNearestCrossPoints(Points, P, 'middle')
                 delta = error_thr * abs(point1[0]-point2[0])
             elif P[0] > Points[-1][0]: 
+                # print('right')
                 point1, point2 = self.getNearestCrossPoints(Points, P, 'right')
                 delta = error_thr * abs(point1[0]-point2[0])
             else:
+                # print('left')
                 point1, point2 = self.getNearestCrossPoints(Points, P, 'left') # point is in the left
                 delta = error_thr * abs(point1[0]-point2[0])
 
         if P[2] < score_threshold:
             return True
 
-        if len(Points) != 0:
+        if len(Points) >3:
             if P[0] > Points[0][0] - delta and P[0] < Points[-1][0]  + delta:
                 return True
             else:
@@ -498,11 +502,13 @@ class Detector(object):
                 #     return True
                 if self.judge2DborderIn(P=pose[7], score_threshold=kpt_thr, kx=self.kx, error_thr=error_thr) == False:
                     if vis_frame is not None:
+                        print(pose[7][0])
                         cv2.circle(vis_frame, (int(pose[7][0]), int(pose[7][1])), 5, (0, 0, 255), 8)
                         print('warning8: out of border')
                     return True
                 if self.judge2DborderIn(P=pose[8], score_threshold=kpt_thr, kx=self.kx, error_thr=error_thr) == False:
                     if vis_frame is not None:
+                        print(pose[8][0])
                         cv2.circle(vis_frame, (int(pose[8][0]), int(pose[8][1])), 5, (0, 0, 255), 8)
                         print('warning8: out of border')
                     return True
