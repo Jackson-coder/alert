@@ -38,7 +38,7 @@ def detect(opt):
     # Load model
     model = attempt_load(weights, map_location=device)  # load FP32 model
     stride = int(model.stride.max())  # model stride
-    print('imgsz',imgsz)
+    # print('imgsz',imgsz)
     if isinstance(imgsz, (list,tuple)):
         assert len(imgsz) ==2; "height and width of image has to be specified"
         imgsz[0] = check_img_size(imgsz[0], s=stride)
@@ -70,7 +70,8 @@ def detect(opt):
         model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
     t0 = time.time()
     
-    detector = Detector("E:\\alert\demo\demo1\demo_v2.json")
+    detector = Detector("E:\\alert\demo\demo1\Seg1.json")
+    # detector = Detector("E:\\alert\demo\demo1\demo_v2.json")
     # detector = Detector("E:\\alert\demo\demo1.json")
 
     for path, img, im0s, vid_cap in dataset:
@@ -114,7 +115,8 @@ def detect(opt):
                 for det_index in range(len(output)):
                     kpts = output[det_index]
                     # flag = detector.judge3DInvade(kpts, 0.3, im0.copy(), mode='unnormal')
-                    flag = detector.judge3DInvade(kpts, 0.3, im0, mode='normal') #0.85
+                    # flag = detector.judge3DInvade(kpts, 0.3, im0, mode='normal') #0.85
+                    flag = detector.judge3DInvade(kpts, 0.5, im0, mode='normal')
 
                 # Print results
                 for c in det[:, 5].unique():
@@ -185,7 +187,7 @@ def detect(opt):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default='weights/yolov5l6_pose_832_mix-finetune.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='demo/demo1/demov2', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--source', type=str, default='demo/demo1/demov11', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', nargs= '+', type=int, default=720, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
