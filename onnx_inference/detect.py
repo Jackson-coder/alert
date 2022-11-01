@@ -61,7 +61,7 @@ class Detector(object):
         print('\n----------水平方向(角度)：',kx,'----------')
         return kx
 
-    def getHorizonSlope(self):
+    def getHorizonSlope_v2(self):
         """计算水平斜率
         """
         point1 = [10000, 10000]
@@ -72,6 +72,28 @@ class Detector(object):
             if point1[0] > point[0]:
                 point1 = point
             elif point2[0] < point[0]:
+                point2 = point
+        
+        kx = (point1[1]-point2[1])/(point1[0]-point2[0]+1e-10)
+        print('\n----------水平方向(角度)：',kx,'----------')
+        return kx
+    
+    def getHorizonSlope(self):
+        """计算水平斜率
+        """
+        step = np.array(self.step)
+        rect = cv2.minAreaRect(step)
+        box = cv2.boxPoints(rect)
+        box_int = np.int0(box)
+
+        point1 = point2 = [0, 0]
+
+        for point in box:
+            print(point)
+            if point[1] > point1[1]:
+                point2 = point1
+                point1 = point
+            elif point[1] > point2[1]:
                 point2 = point
         
         kx = (point1[1]-point2[1])/(point1[0]-point2[0]+1e-10)
