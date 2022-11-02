@@ -78,7 +78,7 @@ class Detector(object):
         print('\n----------水平方向(角度)：',kx,'----------')
         return kx
     
-    def getHorizonSlope(self):
+    def getHorizonSlope_v3(self):
         """计算水平斜率
         """
         step = np.array(self.step)
@@ -100,6 +100,26 @@ class Detector(object):
         print('\n----------水平方向(角度)：',kx,'----------')
         return kx
 
+    def getHorizonSlope(self):
+        """计算水平斜率
+        """
+        p = [0, 0]
+
+        for point in self.step:
+            if point[1] > p[1]:
+                p = point
+        
+        left = p
+        right = p
+        for point in self.step:
+            if point[0] < left[0] and abs((point[1]-left[1])/(point[0]-left[0]))<0.1:
+                left = point
+            if point[0] > right[0] and abs((point[1]-right[1])/(point[0]-right[0]))<0.1:
+                right = point
+        
+        kx = (right[1]-left[1])/(right[0]-left[0]+1e-10)
+        print('\n----------水平方向(角度)：',kx,'----------')
+        return kx
 
     # def getVerticalSlope(self, pose, kpt_thr):
     #     if pose[15][2] > kpt_thr and pose[16][2] > kpt_thr and pose[11][2] > kpt_thr and pose[12][2] > kpt_thr:
@@ -684,6 +704,6 @@ class Detector(object):
 
 
 if __name__ == "__main__":
-    detector = Detector("E:\\alert\demo\demo1\demov11.json")
+    detector = Detector("E:\\alert\demo\demo1\demov21_.json")
     # detector = Detector("E:\\alert\demo\demo1\Seg1.json")
     pass
