@@ -12,9 +12,11 @@ class Detector(object):
 
     '''
 
-    def __init__(self, json_file, scale=1):
+    def __init__(self, json_file, k_thr=0.1, scale=1):
         """
+         
             json_file: 图像分割结果文件
+            k_thr: 构成水平线的相邻点的斜率范围
             scale: 原图相对于处理图的倍率,输入特征图相对于原始标注图像的缩放系数，>1为缩小
         """
         with open(json_file, 'r', encoding='utf8')as fp:
@@ -100,7 +102,7 @@ class Detector(object):
         print('\n----------水平方向(角度)：',kx,'----------')
         return kx
 
-    def getHorizonSlope(self):
+    def getHorizonSlope(self, k_thr=0.1):
         """计算水平斜率
         """
         p = [0, 0]
@@ -112,9 +114,9 @@ class Detector(object):
         left = p
         right = p
         for point in self.step:
-            if point[0] < left[0] and abs((point[1]-left[1])/(point[0]-left[0]))<0.1:
+            if point[0] < left[0] and abs((point[1]-left[1])/(point[0]-left[0]))<k_thr:
                 left = point
-            if point[0] > right[0] and abs((point[1]-right[1])/(point[0]-right[0]))<0.1:
+            if point[0] > right[0] and abs((point[1]-right[1])/(point[0]-right[0]))<k_thr:
                 right = point
         
         kx = (right[1]-left[1])/(right[0]-left[0]+1e-10)
@@ -529,8 +531,8 @@ class Detector(object):
                     print('warning1: out of border')
                 return True
             # 内外都有，手在内部，头部歪曲
-            elif self.judge2DborderIn(P=pose[9], score_threshold=kpt_thr, kx=self.kx, error_thr=error_thr) == True and \
-                self.judge2DborderIn(P=pose[10], score_threshold=kpt_thr, kx=self.kx, error_thr=error_thr) == True and \
+            elif self.judge2DborderIn(P=pose[9], score_threshold=kpt_thr, kx=self.kx, error_thr=0) == True and \
+                self.judge2DborderIn(P=pose[10], score_threshold=kpt_thr, kx=self.kx, error_thr=0) == True and \
                     Crookedhead is True and out_border != 0:
                 if vis_frame is not None:
                     cv2.circle(vis_frame, (int(pose[0][0]), int(pose[0][1])), 10, (0, 0, 255), 8)
@@ -538,13 +540,13 @@ class Detector(object):
                 return True
             # 内外都有，手部伸展
             elif out_border != 0 and in_border != 0:
-                if self.judge2DborderIn(P=pose[9], score_threshold=kpt_thr, kx=self.kx, error_thr=error_thr) == False:
+                if self.judge2DborderIn(P=pose[9], score_threshold=kpt_thr, kx=self.kx, error_thr=0) == False:
                     if abs((pose[9][1]-pose[7][1])/abs(pose[9][0]-pose[7][0]+1e-10)) < 1 and abs((pose[5][1]-pose[7][1])/abs(pose[5][0]-pose[7][0]+1e-10)) < 2:
                         if vis_frame is not None:
                             cv2.circle(vis_frame, (int(pose[9][0]), int(pose[9][1])), 5, (0, 0, 255), 8)
                             print('warning3: out of border')
                         return True
-                if self.judge2DborderIn(P=pose[10], score_threshold=kpt_thr, kx=self.kx, error_thr=error_thr) == False:
+                if self.judge2DborderIn(P=pose[10], score_threshold=kpt_thr, kx=self.kx, error_thr=0) == False:
                     if abs((pose[10][1]-pose[8][1])/abs(pose[10][0]-pose[8][0]+1e-10)) < 1 and abs((pose[6][1]-pose[8][1])/abs(pose[6][0]-pose[8][0]+1e-10)) < 2:
                         if vis_frame is not None:
                             cv2.circle(vis_frame, (int(pose[10][0]), int(pose[10][1])), 5, (0, 0, 255), 8)
@@ -602,7 +604,7 @@ class Detector(object):
 
         nose = pose[0]
         # 伸头出界
-        if Crookedhead == True and self.judge2DborderIn(P=nose, score_threshold=kpt_thr, kx=self.kx, error_thr=error_thr) == False:
+        if Crookedhead == True and self.judge2DborderIn(P=nose, score_threshold=kpt_thr, kx=self.kx, error_thr=0) == False:
             if vis_frame is not None:
                 cv2.circle(vis_frame, (int(nose[0]), int(nose[1])), 5, (0, 0, 255), 8)
                 print('warning: out of border')
@@ -656,16 +658,15 @@ class Detector(object):
                 cv2.circle(vis_frame, tuple(point1), 5, (255, 0, 0), 8)
                 cv2.circle(vis_frame, tuple(point2), 5, (255, 0, 0), 8)
             
-            # tolerable_eer_thr = math.sqrt((hip[1] - shoulder[1])**2+(hip[0] - shoulder[0])**2) *0.2
             tolerable_eer_thr = abs(point1[0] - point2[0])*error_thr
 
 
             # pose[2:11, :], pose[0:2, :] = pose[0:9, :].copy(), pose[9:11, :].copy()
             pose[3:11, :], pose[1:3, :] = pose[1:9, :].copy(), pose[9:11, :].copy()
 
-            # 歪曲身体伸手出界
-            if (abs((pose[1][1]-pose[9][1])/abs(pose[1][0]-pose[9][0]+1e-10)) < 1 and abs((pose[1][1]-pose[9][1])/abs(pose[1][0]-pose[9][0]+1e-10)) < 2) or \
-                (abs((pose[2][1]-pose[10][1])/abs(pose[2][0]-pose[10][0]+1e-10)) < 1 and abs((pose[2][1]-pose[10][1])/abs(pose[2][0]-pose[10][0]+1e-10)) < 2):
+            # 伸手出界
+            if (abs((pose[1][1]-pose[9][1])/abs(pose[1][0]-pose[9][0]+1e-10)) < 1 and abs((pose[7][1]-pose[9][1])/abs(pose[7][0]-pose[9][0]+1e-10)) < 2) or \
+                (abs((pose[2][1]-pose[10][1])/abs(pose[2][0]-pose[10][0]+1e-10)) < 1 and abs((pose[8][1]-pose[10][1])/abs(pose[8][0]-pose[10][0]+1e-10)) < 2):
             # if Crookedhead == True and self.judge2DborderIn(P=nose, score_threshold=kpt_thr, kx=self.kx) == True:
                 for i in range(1,3):
                     p = pose[i]
@@ -673,10 +674,11 @@ class Detector(object):
                     distance2 = self.getDist_P2L_V2(p, -1/(self.kx+1e-10), point2)
                     parallelLineDistance = self.getDist_P2L_V2(point1, -1/(self.kx+1e-10), point2)
 
-                    if abs(distance1+distance2-parallelLineDistance)/2 >= tolerable_eer_thr:
+                    # if abs(distance1+distance2-parallelLineDistance)/2 >= tolerable_eer_thr:
+                    if abs(distance1+distance2-parallelLineDistance)/2 >= tolerable_eer_thr * 0.1:
                         if vis_frame is not None:
-                            print(point1, point2, p)
-                            print(-self.kx, distance1, distance2, parallelLineDistance, abs(distance1+distance2-parallelLineDistance)/2, tolerable_eer_thr)
+                            # print(point1, point2, p)
+                            # print(-self.kx, distance1, distance2, parallelLineDistance, abs(distance1+distance2-parallelLineDistance)/2, tolerable_eer_thr)
                             print('warning: hand out of border')
                             cv2.circle(vis_frame, (int(p[0]), int(p[1])), 10, (0, 0, 255), 8)
                         return True
@@ -692,8 +694,8 @@ class Detector(object):
                 
                 if abs(distance1+distance2-parallelLineDistance)/2 >= tolerable_eer_thr:
                     if vis_frame is not None:
-                        print(abs((pose[0][0]-hip[0])/(pose[0][1]-hip[1]+1e-10)))
-                        print(abs(distance1+distance2-parallelLineDistance)/2, tolerable_eer_thr)
+                        # print(abs((pose[0][0]-hip[0])/(pose[0][1]-hip[1]+1e-10)))
+                        # print(abs(distance1+distance2-parallelLineDistance)/2, tolerable_eer_thr)
                         print('warning: out of border')
                         print(pose)
                         cv2.circle(vis_frame, (int(p[0]), int(p[1])), 10, (0, 0, 255), 8)
