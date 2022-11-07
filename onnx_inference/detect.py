@@ -675,7 +675,7 @@ class Detector(object):
                     parallelLineDistance = self.getDist_P2L_V2(point1, -1/(self.kx+1e-10), point2)
 
                     # if abs(distance1+distance2-parallelLineDistance)/2 >= tolerable_eer_thr:
-                    if abs(distance1+distance2-parallelLineDistance)/2 >= tolerable_eer_thr * 0.1:
+                    if abs(distance1+distance2-parallelLineDistance)/2 >= tolerable_eer_thr:
                         if vis_frame is not None:
                             # print(point1, point2, p)
                             # print(-self.kx, distance1, distance2, parallelLineDistance, abs(distance1+distance2-parallelLineDistance)/2, tolerable_eer_thr)
