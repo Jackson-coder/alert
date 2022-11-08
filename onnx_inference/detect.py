@@ -44,7 +44,7 @@ class Detector(object):
             for i in range(len(self.larger_floor)):
                 self.larger_floor[i] = [int(self.larger_floor[i][0]/scale), int(self.larger_floor[i][1]/scale)]
 
-        self.kx = self.getHorizonSlope()
+        self.kx = self.getHorizonSlope(k_thr)
 
     def getHorizonSlope_v1(self):
         """计算水平斜率

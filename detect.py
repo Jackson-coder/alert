@@ -70,7 +70,7 @@ def detect(opt):
         model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
     t0 = time.time()
     
-    detector = Detector("E:\\alert\demo\demo1\Seg1.json")
+    detector = Detector("E:\\alert\demo\demo1\demov23.json",k_thr=0.2)
     # detector = Detector("E:\\alert\demo\demo1\demo_v2.json")
     # detector = Detector("E:\\alert\demo\demo1.json")
 
@@ -187,7 +187,7 @@ def detect(opt):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default='weights/yolov5l6_pose_832_mix-finetune.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='demo/demo1/demov11', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--source', type=str, default='demo/demo1/demov23', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', nargs= '+', type=int, default=720, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
