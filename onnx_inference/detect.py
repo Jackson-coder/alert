@@ -476,16 +476,10 @@ class Detector(object):
         flag = True
         
         for p in pose:
-            # print('p=', p[2])
             flag = bool(p[2] > kpt_thr)
             if flag == False:
-                # print('False')
                 break
 
-        # # 只识别面朝前或者面朝后的人
-        # if direction != self.judgeDirection(pose, kpt_thr): # judgeDirection 将在第三版代码更新后去除，将使用跟踪位移方向判断人的移动方向
-        #                                                 # 异常动作如 侧面歪头 和 侧面伸腿 将使用跟踪协助判断
-        #     continue
         if pose_score < 0.5:#0.8
             return False
 
@@ -531,11 +525,11 @@ class Detector(object):
                     print('warning1: out of border')
                 return True
             # 内外都有，手在内部，头部歪曲
-            elif self.judge2DborderIn(P=pose[9], score_threshold=kpt_thr, kx=self.kx, error_thr=0) == True and \
-                self.judge2DborderIn(P=pose[10], score_threshold=kpt_thr, kx=self.kx, error_thr=0) == True and \
+            elif self.judge2DborderIn(P=pose[9], score_threshold=kpt_thr, kx=self.kx, error_thr=error_thr) == True and \
+                self.judge2DborderIn(P=pose[10], score_threshold=kpt_thr, kx=self.kx, error_thr=error_thr) == True and \
                     Crookedhead is True and out_border != 0:
                 if vis_frame is not None:
-                    cv2.circle(vis_frame, (int(pose[0][0]), int(pose[0][1])), 10, (0, 0, 255), 8)
+                    cv2.circle(vis_frame, (int(pose[0][0]), int(pose[0][1])), 5, (0, 0, 255), 8)
                     print('warning2: out of border')
                 return True
             # 内外都有，手部伸展
@@ -603,12 +597,12 @@ class Detector(object):
             return False
 
         nose = pose[0]
-        # 伸头出界
-        if Crookedhead == True and self.judge2DborderIn(P=nose, score_threshold=kpt_thr, kx=self.kx, error_thr=0) == False:
-            if vis_frame is not None:
-                cv2.circle(vis_frame, (int(nose[0]), int(nose[1])), 5, (0, 0, 255), 8)
-                print('warning: out of border')
-            return True
+        # # 伸头出界
+        # if Crookedhead == True and self.judge2DborderIn(P=nose, score_threshold=kpt_thr, kx=self.kx, error_thr=0) == False:
+        #     if vis_frame is not None:
+        #         cv2.circle(vis_frame, (int(nose[0]), int(nose[1])), 5, (0, 0, 255), 8)
+        #         print('warning: out of border')
+        #     return True
         
 
         shoulder = (pose[5] + pose[6]) / 2
@@ -663,6 +657,18 @@ class Detector(object):
 
             # pose[2:11, :], pose[0:2, :] = pose[0:9, :].copy(), pose[9:11, :].copy()
             pose[3:11, :], pose[1:3, :] = pose[1:9, :].copy(), pose[9:11, :].copy()
+
+            # 伸头出界
+            if Crookedhead == True and self.judge2DborderIn(P=nose, score_threshold=kpt_thr, kx=self.kx, error_thr=0) == False:
+                p = pose[0]
+                distance1 = self.getDist_P2L_V2(p, -1/(self.kx+1e-10), point1)
+                distance2 = self.getDist_P2L_V2(p, -1/(self.kx+1e-10), point2)
+                parallelLineDistance = self.getDist_P2L_V2(point1, -1/(self.kx+1e-10), point2)
+                if abs(distance1+distance2-parallelLineDistance)/2 >= tolerable_eer_thr*0.1:
+                    if vis_frame is not None:
+                        cv2.circle(vis_frame, (int(nose[0]), int(nose[1])), 5, (0, 0, 255), 8)
+                        print('warning: out of border')
+                    return True
 
             # 伸手出界
             if (abs((pose[1][1]-pose[9][1])/abs(pose[1][0]-pose[9][0]+1e-10)) < 1 and abs((pose[7][1]-pose[9][1])/abs(pose[7][0]-pose[9][0]+1e-10)) < 2) or \
