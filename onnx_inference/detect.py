@@ -229,6 +229,52 @@ class Detector(object):
         print(Points)
 
         return Points
+    
+
+    def getLeftPoint(self, kx=0, P=[960, 540, 1]):
+        """寻找交点
+            k：斜率
+            P：定点坐标
+
+            return:
+                Point
+        """
+        # 水平交点
+        Points = []
+        for i in range(len(self.alert1)):
+            flag = False
+            crossPoint, flag = self.judgeCross(
+                kx, P, self.alert1[i], self.alert1[(i+1) % len(self.alert1)])
+            if flag:
+                Points.append(crossPoint)
+
+        Points.sort()
+
+        return Points
+
+
+    def getRightPoint(self, kx=0, P=[960, 540, 1]):
+        """寻找交点
+            k：斜率
+            P：定点坐标
+
+            return:
+                Point
+        """
+        # 水平交点
+        Points = []
+
+        for i in range(len(self.alert2)):
+            flag = False
+            crossPoint, flag = self.judgeCross(
+                kx, P, self.alert2[i], self.alert2[(i+1) % len(self.alert2)])
+            if flag:
+                Points.append(crossPoint)
+
+        Points.sort()
+
+        return Points
+
 
     def getNearestCrossPoints(self, points, P, position='middle'):
         """寻找交点
@@ -624,29 +670,24 @@ class Detector(object):
 
         # 水平交点
         if pose[15][1] < pose[16][1]:
-            crossPoints = self.getCrossPoints(kx=self.kx, P=pose[16])
+            LeftPoints = self.getLeftPoint(kx=self.kx, P=pose[16])
+            RightPoints = self.getRightPoint(kx=self.kx, P=pose[16])
         else:
-            crossPoints = self.getCrossPoints(kx=self.kx, P=pose[15])
-
+            LeftPoints = self.getLeftPoint(kx=self.kx, P=pose[15])
+            RightPoints = self.getRightPoint(kx=self.kx, P=pose[15])
+        
         # 得到最近的两个水平交点
-        if len(crossPoints) > 3:
-            if pose[15][1] < pose[16][1]:
-                point1, point2 = self.getNearestCrossPoints(crossPoints, pose[16])
-            else:
-                point1, point2 = self.getNearestCrossPoints(crossPoints, pose[15])
-            
-            # shoulder_2_hip = abs(shoulder[1]-hip[1])
-            # left_hip_knee = abs(pose[11][0]-pose[13][0]) > shoulder_2_hip/3
-            # right_hip_knee = abs(pose[12][0]-pose[14][0]) > shoulder_2_hip/3
+        if len(LeftPoints)!=0 and len(RightPoints)!=0:
+            point1 = LeftPoints[-1]
+            point2 = RightPoints[0]
+            # crossPoints = self.getRightPoint(kx=self.kx, P=pose[15])
 
-            
-            # if left_hip_knee:
-            #     point1, point2 = self.getNearestCrossPoints(crossPoints, pose[16])
-            #     print("left_hip_knee")
-            # elif right_hip_knee:
-            #     point1, point2 = self.getNearestCrossPoints(crossPoints, pose[15])
-            #     print("right_hip_knee")
-
+        # 
+        # if len(crossPoints) > 3:
+        #     if pose[15][1] < pose[16][1]:
+        #         point1, point2 = self.getNearestCrossPoints(crossPoints, pose[16])
+        #     else:
+        #         point1, point2 = self.getNearestCrossPoints(crossPoints, pose[15])
 
             if vis_frame is not None:
                 cv2.circle(vis_frame, tuple(point1), 5, (255, 0, 0), 8)
