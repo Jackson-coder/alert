@@ -6,16 +6,17 @@ import numpy as np
 class Detector(object):
     '''Tutorial
 
-    detector = Detector(conf_file)
-    invade_flag = detector.judge3DInvade(kpts, kpt_score, im0, mode='normal')  #debug
-    invade_flag = detector.judge3DInvade(kpts, kpt_score，mode='normal')  #release
+    detector = Detector(conf_file, mode='normal')
+    invade_flag = detector.judge3DInvade(kpts, kpt_score, im0)  #debug
+    invade_flag = detector.judge3DInvade(kpts, kpt_score)  #release
 
     '''
 
-    def __init__(self, json_file, k_thr=0.1, scale=1):
+    def __init__(self, json_file, mode='normal', k_thr=0.1, scale=1):
         """
          
             json_file: 图像分割结果文件
+            mode: 相机安装是否过低, 正常情况下(不过低)为normal
             k_thr: 构成水平线的相邻点的斜率范围
             scale: 原图相对于处理图的倍率,输入特征图相对于原始标注图像的缩放系数，>1为缩小
         """
@@ -28,6 +29,9 @@ class Detector(object):
             self.larger_floor = json_data["larger_floor"]
             self.width = json_data["imgWidth"]
             self.height = json_data["imgHeight"]
+
+            # self.farborder = json_data[]
+            # self.farBorder = [[[585,426],[589,496]],[[668,425],[676,494]]]
 
             for i in range(len(self.alert1)):
                 self.alert1[i] = [int(self.alert1[i][0]/scale), int(self.alert1[i][1]/scale)]
@@ -43,6 +47,10 @@ class Detector(object):
 
             for i in range(len(self.larger_floor)):
                 self.larger_floor[i] = [int(self.larger_floor[i][0]/scale), int(self.larger_floor[i][1]/scale)]
+
+        self.mode = mode
+        # 求直线方程
+        self.A, self.B, self.C = self.getBorder()
 
         self.kx = self.getHorizonSlope(k_thr)
 
@@ -118,6 +126,8 @@ class Detector(object):
                 left = point
             if point[0] > right[0] and abs((point[1]-right[1])/(point[0]-right[0]))<k_thr:
                 right = point
+        
+        print('\n----------',left,'.....',right,'----------')
         
         kx = (right[1]-left[1])/(right[0]-left[0]+1e-10)
         print('\n----------水平方向(角度)：',kx,'----------')
@@ -345,7 +355,7 @@ class Detector(object):
         else:
             return True
 
-    def judge2DfarBorderIn(self, pose, score_threshold=0.3):
+    def judge2DfarBorderIn(self, pose, error_thr=0.15, score_threshold=0.3):
         """判断远处的点是否在二维区域内部
             pose：目标点
             score_threshold：姿态点置信度
@@ -373,9 +383,9 @@ class Detector(object):
             elif self.alert2[i][0]<right_point2[0]:
                 right_point2 = self.alert2[i]
 
-
+        delta = error_thr * abs(left_point1[0]-right_point1[0])
         # 判断线段与直线相交
-        if pose[0]-left_point1[0] < 0 or pose[0] - right_point1[0] > 0:
+        if pose[0]-left_point1[0] + delta < 0 or pose[0] - right_point1[0] - delta > 0:
             return True
         else:
             return False
@@ -410,27 +420,20 @@ class Detector(object):
         else:
             return 'backward'
 
-    def regionJudge(self, pose_point, mode='normal'):
-        """判断是否是上扶梯远处的点
-            pose_point：目标点
-            mode: 是否是正常视角
-
-            return:
-                True or False
-        """
-        if mode=='normal':
+    def getBorder(self):
+        if self.mode=='normal':
             return True
         points = np.array([self.step], dtype=np.int32)
         rect = cv2.minAreaRect(points)
         box = cv2.boxPoints(rect)
-        vetuex1 = [10000,10000]
-        vetuex2 = [10000,10000]
+        vetuex1 = [0,0]
+        vetuex2 = [0,0]
         for vetuex in box:
-            if vetuex[1]<vetuex1[1]:
+            if vetuex[1]>vetuex1[1]:
                 vetuex2 = vetuex1
                 vetuex1 = vetuex
                 
-            elif vetuex[1]<vetuex2[1]:
+            elif vetuex[1]>vetuex2[1]:
                 vetuex2 = vetuex
         
         min_y1 = 1000
@@ -443,10 +446,52 @@ class Detector(object):
             if abs((self.step[i][0]-vetuex2[0])/(self.step[i][1]-vetuex2[1]+1e-10))<1 and self.step[i][1]<min_y2:
                 min_y2 = self.step[i][1]
                 point2 = self.step[i]
-        distance = self.getDist_P2L_V1(pose_point, point1, point2)
+        
+        print(point1, point2)
+        # 求直线方程
+        return self.getLine(point1, point2)
 
+    def regionJudge(self, pose_point, score_threshold):
+        """判断是否是上扶梯远处的点
+            pose_point：目标点
+            
+            return:
+                True or False
+        """
+        # if self.mode=='normal':
+        #     return True
+        # points = np.array([self.step], dtype=np.int32)
+        # rect = cv2.minAreaRect(points)
+        # box = cv2.boxPoints(rect)
+        # vetuex1 = [10000,10000]
+        # vetuex2 = [10000,10000]
+        # for vetuex in box:
+        #     if vetuex[1]<vetuex1[1]:
+        #         vetuex2 = vetuex1
+        #         vetuex1 = vetuex
+                
+        #     elif vetuex[1]<vetuex2[1]:
+        #         vetuex2 = vetuex
+        
+        # min_y1 = 1000
+        # min_y2 = 1000
+
+        # for i in range(len(self.step)):
+        #     if abs((self.step[i][0]-vetuex1[0])/(self.step[i][1]-vetuex1[1]+1e-10))<1 and self.step[i][1]<min_y1:
+        #         min_y1 = self.step[i][1]
+        #         point1 = self.step[i]
+        #     if abs((self.step[i][0]-vetuex2[0])/(self.step[i][1]-vetuex2[1]+1e-10))<1 and self.step[i][1]<min_y2:
+        #         min_y2 = self.step[i][1]
+        #         point2 = self.step[i]
+        # distance = self.getDist_P2L_V1(pose_point, point1, point2)
+
+        if pose_point[2]<score_threshold:
+            return False
+
+        distance = (self.A*pose_point[0]+self.B*pose_point[1]+self.C)/math.sqrt(self.A*self.A+self.B*self.B+1e-10)
+        sign = self.C > 0
         print(distance)
-        if distance > 0:
+        if distance * sign > 0:
             return False
         else:
             return True
@@ -496,7 +541,7 @@ class Detector(object):
                 return True
             return False
 
-    def judge3DInvade(self, output, kpt_thr, vis_frame=None, error_thr=0.15, mode='normal'):
+    def judge3DInvade(self, output, kpt_thr, vis_frame=None, error_thr=0.15):
         '''判断是否发生3D入侵
 
             output: 网络前向输出
@@ -506,8 +551,6 @@ class Detector(object):
             error_thr: 容错阈值
 
             vis_frame: 输入视频,默认是release版本
-
-            mode: 相机安装是否过低, 正常情况下(不过低)为normal
 
             return:
                 flag: 是否产生3D入侵警告
@@ -532,7 +575,8 @@ class Detector(object):
         if self.need_judge(pose, kpt_thr) == False:
             return False
 
-
+        # cv2.circle(vis_frame, (776, 416), 5, (0, 255,0), 8)
+        # cv2.circle(vis_frame, (613, 415), 5, (0, 255,0), 8)
         # 踢腿出界
         if self.judge2DborderIn(P=pose[15], score_threshold=kpt_thr, kx=self.kx) == False:
             if vis_frame is not None:
@@ -617,25 +661,27 @@ class Detector(object):
             return False
 
         # 完整姿态
-        region_need_to_judge = self.regionJudge(pose[15], mode=mode) and \
-            self.regionJudge(pose[16], mode=mode)
+        region_need_to_judge = self.regionJudge(pose[15], score_threshold=kpt_thr) and \
+            self.regionJudge(pose[16], score_threshold=kpt_thr)
 
         if region_need_to_judge == False:
             if abs((pose[9][1]-pose[7][1])/abs(pose[9][0]-pose[7][0]+1e-10)) < 1 \
                     and abs((pose[5][1]-pose[7][1])/abs(pose[5][0]-pose[7][0]+1e-10)) < 2 \
-                        and self.judge2DfarBorderIn(pose[9], kpt_thr):
+                        and self.judge2DfarBorderIn(pose[9], score_threshold=kpt_thr, error_thr=error_thr) \
+                            and (pose[9][0]-pose[7][0])*(pose[5][0]-pose[7][0])<0:
                 if vis_frame is not None:
                     cv2.circle(vis_frame, (int(pose[9][0]), int(pose[9][1])), 5, (0, 0, 255), 8)
                     print('warning6: out of border')
                 return True
             elif abs((pose[10][1]-pose[8][1])/abs(pose[10][0]-pose[8][0]+1e-10)) < 1 \
                      and abs((pose[6][1]-pose[8][1])/abs(pose[6][0]-pose[8][0]+1e-10)) < 2 \
-                         and self.judge2DfarBorderIn(pose[10], kpt_thr):
+                         and self.judge2DfarBorderIn(pose[10], score_threshold=kpt_thr, error_thr=error_thr) \
+                            and (pose[10][0]-pose[8][0])*(pose[6][0]-pose[8][0])<0:
                 if vis_frame is not None:
                     cv2.circle(vis_frame, (int(pose[10][0]), int(pose[10][1])), 5, (0, 0, 255), 8)
                     print('warning6: out of border')
                 return True
-            elif Crookedhead == True  and self.judge2DfarBorderIn(pose[0], kpt_thr):
+            elif Crookedhead == True  and self.judge2DfarBorderIn(pose[0], score_threshold=kpt_thr, error_thr=error_thr):
                 if vis_frame is not None:
                     cv2.circle(vis_frame, (int(pose[0][0]), int(pose[0][1])), 5, (0, 0, 255), 8)
                     print('warning6: out of border')
