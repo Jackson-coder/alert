@@ -50,7 +50,7 @@ class Detector(object):
 
         self.mode = mode
         # 求直线方程
-        if self.mode == 'normal':
+        if self.mode == 'unnormal':
             self.A, self.B, self.C = self.getBorder() 
 
         self.kx = self.getHorizonSlope(k_thr)
