@@ -463,7 +463,7 @@ class Detector(object):
             return False
 
         distance = (self.A*pose_point[0]+self.B*pose_point[1]+self.C)/math.sqrt(self.A*self.A+self.B*self.B+1e-10)
-        sign = self.C > 0
+        sign = self.C
         if distance * sign > 0 or self.is_in_poly(pose_point, box) == False:
             return False
         else:
@@ -639,6 +639,7 @@ class Detector(object):
             self.regionJudge(pose[16], score_threshold=kpt_thr, box=box)
 
         if region_need_to_judge == False:
+            cv2.circle(vis_frame, (36,36), 5, (0, 255, 0), 8)
             if abs((pose[9][1]-pose[7][1])/abs(pose[9][0]-pose[7][0]+1e-10)) < 1 \
                     and abs((pose[5][1]-pose[7][1])/abs(pose[5][0]-pose[7][0]+1e-10)) < 2 \
                         and self.judge2DfarBorderIn(pose[9], score_threshold=kpt_thr, error_thr=error_thr) \
