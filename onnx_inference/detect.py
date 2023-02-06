@@ -50,7 +50,8 @@ class Detector(object):
 
         self.mode = mode
         # 求直线方程
-        self.A, self.B, self.C = self.getBorder()
+        if self.mode == 'normal':
+            self.A, self.B, self.C = self.getBorder() 
 
         self.kx = self.getHorizonSlope(k_thr)
 
@@ -421,8 +422,6 @@ class Detector(object):
             return 'backward'
 
     def getBorder(self):
-        if self.mode=='normal':
-            return True
         points = np.array([self.step], dtype=np.int32)
         rect = cv2.minAreaRect(points)
         box = cv2.boxPoints(rect)
@@ -459,6 +458,8 @@ class Detector(object):
             return:
                 True or False
         """
+        if self.mode == 'normal':
+            return True
         if pose_point[2]<score_threshold:
             return False
 
