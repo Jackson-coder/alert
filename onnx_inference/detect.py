@@ -451,47 +451,20 @@ class Detector(object):
         # 求直线方程
         return self.getLine(point1, point2)
 
-    def regionJudge(self, pose_point, score_threshold):
+    def regionJudge(self, pose_point, score_threshold, box):
         """判断是否是上扶梯远处的点
-            pose_point：目标点
-            
+            pose_point:目标点
+            score_threshold:关键点置信度
+            box:检测框
             return:
                 True or False
         """
-        # if self.mode=='normal':
-        #     return True
-        # points = np.array([self.step], dtype=np.int32)
-        # rect = cv2.minAreaRect(points)
-        # box = cv2.boxPoints(rect)
-        # vetuex1 = [10000,10000]
-        # vetuex2 = [10000,10000]
-        # for vetuex in box:
-        #     if vetuex[1]<vetuex1[1]:
-        #         vetuex2 = vetuex1
-        #         vetuex1 = vetuex
-                
-        #     elif vetuex[1]<vetuex2[1]:
-        #         vetuex2 = vetuex
-        
-        # min_y1 = 1000
-        # min_y2 = 1000
-
-        # for i in range(len(self.step)):
-        #     if abs((self.step[i][0]-vetuex1[0])/(self.step[i][1]-vetuex1[1]+1e-10))<1 and self.step[i][1]<min_y1:
-        #         min_y1 = self.step[i][1]
-        #         point1 = self.step[i]
-        #     if abs((self.step[i][0]-vetuex2[0])/(self.step[i][1]-vetuex2[1]+1e-10))<1 and self.step[i][1]<min_y2:
-        #         min_y2 = self.step[i][1]
-        #         point2 = self.step[i]
-        # distance = self.getDist_P2L_V1(pose_point, point1, point2)
-
         if pose_point[2]<score_threshold:
             return False
 
         distance = (self.A*pose_point[0]+self.B*pose_point[1]+self.C)/math.sqrt(self.A*self.A+self.B*self.B+1e-10)
         sign = self.C > 0
-        print(distance)
-        if distance * sign > 0:
+        if distance * sign > 0 or self.is_in_poly(pose_point, box) == False:
             return False
         else:
             return True
@@ -561,6 +534,7 @@ class Detector(object):
         pose = output[6:]
         pose = np.reshape(pose,(17, 3))
         pose_score = output[4]
+        box = [[output[:4][0],output[:4][1]], [output[:4][2],output[:4][1]], [output[:4][2],output[:4][3]], [output[:4][0],output[:4][3]]]
 
         flag = True
         
@@ -661,8 +635,8 @@ class Detector(object):
             return False
 
         # 完整姿态
-        region_need_to_judge = self.regionJudge(pose[15], score_threshold=kpt_thr) and \
-            self.regionJudge(pose[16], score_threshold=kpt_thr)
+        region_need_to_judge = self.regionJudge(pose[15], score_threshold=kpt_thr, box=box) and \
+            self.regionJudge(pose[16], score_threshold=kpt_thr, box=box)
 
         if region_need_to_judge == False:
             if abs((pose[9][1]-pose[7][1])/abs(pose[9][0]-pose[7][0]+1e-10)) < 1 \
