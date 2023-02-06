@@ -641,7 +641,7 @@ class Detector(object):
         if region_need_to_judge == False:
             cv2.circle(vis_frame, (36,36), 5, (0, 255, 0), 8)
             if abs((pose[9][1]-pose[7][1])/abs(pose[9][0]-pose[7][0]+1e-10)) < 1 \
-                    and abs((pose[5][1]-pose[7][1])/abs(pose[5][0]-pose[7][0]+1e-10)) < 2 \
+                    and abs((pose[5][1]-pose[7][1])/abs(pose[5][0]-pose[7][0]+1e-10)) < 1 \
                         and self.judge2DfarBorderIn(pose[9], score_threshold=kpt_thr, error_thr=error_thr) \
                             and (pose[9][0]-pose[7][0])*(pose[5][0]-pose[7][0])<0:
                 if vis_frame is not None:
@@ -649,7 +649,7 @@ class Detector(object):
                     print('warning6: out of border')
                 return True
             elif abs((pose[10][1]-pose[8][1])/abs(pose[10][0]-pose[8][0]+1e-10)) < 1 \
-                     and abs((pose[6][1]-pose[8][1])/abs(pose[6][0]-pose[8][0]+1e-10)) < 2 \
+                     and abs((pose[6][1]-pose[8][1])/abs(pose[6][0]-pose[8][0]+1e-10)) < 1 \
                          and self.judge2DfarBorderIn(pose[10], score_threshold=kpt_thr, error_thr=error_thr) \
                             and (pose[10][0]-pose[8][0])*(pose[6][0]-pose[8][0])<0:
                 if vis_frame is not None:
